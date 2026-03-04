@@ -1,0 +1,29 @@
+# Neural Adversarial Bandit Configuration - Strategy V3 with 100 epochs
+# Models: Qwen 2.5-72B
+# Epochs: 100 (matching original INSTINCT/NeuralUCB)
+#
+# Usage:
+#   tmuxinator start -p conf/main_experiments/adversarial_v3_epochs100.yml
+#   tmuxinator start -p conf/main_experiments/adversarial_v3_epochs100.yml gpu=0 batch=40 eta=10
+
+name: main-adversarial-v3-epochs100-eta<%= (@settings["eta"] || "10").to_s.gsub(".", "_") %>-batch<%= (@settings["batch"] || "40").to_s %>
+root: .
+startup_window: qwen25_72b
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation
+  - source <%= @settings["project_root"] || "/path/to/project" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+
+windows:
+  # Qwen 2.5-72B with epochs=100
+  - qwen25_72b:
+      layout: tiled
+      panes:
+        # Optimize: p1
+        - CUDA_VISIBLE_DEVICES=0 uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores --context-embedding --subset hard --model custom/qwen/qwen-2.5-72b-instruct@http://YOUR_MODEL_ENDPOINT/v1 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize p1 --eta <%= @settings["eta"] || "10" %> --epochs 100 --alpha 0.1 --beta 1.0 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_v3_slim
+        # Optimize: p2
+        - CUDA_VISIBLE_DEVICES=0 uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores --context-embedding --subset hard --model custom/qwen/qwen-2.5-72b-instruct@http://YOUR_MODEL_ENDPOINT/v1 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize p2 --eta <%= @settings["eta"] || "10" %> --epochs 100 --alpha 0.1 --beta 1.0 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_v3_slim
+        # Optimize: both
+        - CUDA_VISIBLE_DEVICES=1 uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores --context-embedding --subset hard --model custom/qwen/qwen-2.5-72b-instruct@http://YOUR_MODEL_ENDPOINT/v1 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize both --eta <%= @settings["eta"] || "10" %> --epochs 100 --alpha 0.1 --beta 1.0 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_v3_slim
+

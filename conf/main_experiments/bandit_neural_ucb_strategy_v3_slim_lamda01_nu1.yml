@@ -1,0 +1,38 @@
+# Tmuxinator configuration for Neural UCB (without context embedding) with Strategy V3-Slim
+# V3-Slim: 13 curated strategies (removed firm_stance, strategic_withholding, graceful_exit)
+# This version does NOT use context embedding - only arm embeddings are used
+#
+# UCB Parameters:
+#   - lambda (alpha): 0.1 (regularization for covariance matrix)
+#   - nu (beta): 1.0 (exploration parameter for UCB)
+#
+# Removed strategies:
+#   - firm_stance: damages relationship in hard scenarios
+#   - strategic_withholding: poor performance in hard scenarios
+#   - graceful_exit: causes premature termination and low goal scores
+#
+# Usage:
+#   tmuxinator start -p conf/strategy/bandit_neural_ucb_strategy_v3_slim_lamda01_nu1.yml gpu=0
+#   tmuxinator start -p conf/strategy/bandit_neural_ucb_strategy_v3_slim_lamda01_nu1.yml gpu=0 batch=40
+
+name: neural-ucb-no-ctx-v3slim-lamda01-nu1-batch<%= (@settings["batch"] || "40").to_s %>
+root: .
+startup_window: deepseek_v32
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation
+  - source <%= @settings["project_root"] || "/path/to/project" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+  - export CUDA_VISIBLE_DEVICES=<%= @settings["gpu"] || "0" %>
+
+windows:
+  - deepseek_v32:
+      layout: tiled
+      panes:
+        # Optimize: p1
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --batch --batch-size <%= @settings["batch"] || "40" %><%= @settings["scenario_ids"] ? " --scenario-ids #{@settings["scenario_ids"]}" : "" %> --no-mask-unselected-scores --subset hard --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize p1 --alpha 0.1 --beta 1.0 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_v3_slim
+        # Optimize: p2
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --batch --batch-size <%= @settings["batch"] || "40" %><%= @settings["scenario_ids"] ? " --scenario-ids #{@settings["scenario_ids"]}" : "" %> --no-mask-unselected-scores --subset hard --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize p2 --alpha 0.1 --beta 1.0 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_v3_slim
+        # Optimize: both
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --batch --batch-size <%= @settings["batch"] || "40" %><%= @settings["scenario_ids"] ? " --scenario-ids #{@settings["scenario_ids"]}" : "" %> --no-mask-unselected-scores --subset hard --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize both --alpha 0.1 --beta 1.0 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_v3_slim
+

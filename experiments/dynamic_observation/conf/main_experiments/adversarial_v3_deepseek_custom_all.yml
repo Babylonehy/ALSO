@@ -1,0 +1,39 @@
+# Adversarial Main Experiment - DeepSeek V3.2 (OpenRouter)
+#
+# Dataset: all (full SOTOPIA)
+# Model: openrouter/deepseek/deepseek-v3.2
+# Reward Model: openrouter/deepseek/deepseek-v3.2
+# Eta: 10.0
+#
+# Usage:
+#   tmuxinator start -p conf/main_experiments/adversarial_v3_deepseek_custom_all.yml
+#   tmuxinator start -p conf/main_experiments/adversarial_v3_deepseek_custom_all.yml batch=30
+
+name: main-adversarial-v3-deepseek-openrouter-all-batch<%= (@settings["batch"] || "40").to_s %>
+root: .
+startup_window: deepseek_both
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation
+  - source <%= @settings["project_root"] || "/path/to/project" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+
+windows:
+  # Optimize: both (main experiment)
+  - deepseek_both:
+      layout: tiled
+      panes:
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores --context-embedding --subset all --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize both --eta 10.0 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_v3_slim
+
+  # Optimize: p1 only
+  - deepseek_p1:
+      layout: tiled
+      panes:
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores --context-embedding --subset all --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize p1 --eta 10.0 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_v3_slim
+
+  # Optimize: p2 only
+  - deepseek_p2:
+      layout: tiled
+      panes:
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores --context-embedding --subset all --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize p2 --eta 10.0 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_v3_slim
+

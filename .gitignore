@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+*.egg-info/
+
+# Data & outputs (不提交大文件)
+embeddings_backgrounds*/
+paraphrased_backgrounds*/
+agent_backgrounds/
+outputs/
+results/
+cache/
+csv/
+*.npy
+*.pkl
+
+# Env
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store

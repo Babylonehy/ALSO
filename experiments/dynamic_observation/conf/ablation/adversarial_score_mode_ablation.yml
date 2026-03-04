@@ -1,0 +1,40 @@
+# Ablation Study: Different Cumulative Score Modes for Adversarial Bandit
+#
+# Cumulative score mode controls how arm selection scores are calculated:
+#   - "nn": Use only NN predicted scores (stable for all arms)
+#   - "actual": Use only actual observed scores (with importance weighting, sparse)
+#   - "mean": Use average of NN and actual scores
+#
+# Usage:
+#   tmuxinator start -p conf/ablation/adversarial_score_mode_ablation.yml gpu=0
+#   tmuxinator start -p conf/ablation/adversarial_score_mode_ablation.yml gpu=0 batch=30
+
+name: ablation-adversarial-score-mode-batch<%= (@settings["batch"] || "30").to_s %>
+root: .
+startup_window: score_nn
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation
+  - source <%= @settings["project_root"] || "/path/to/project" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+  - export CUDA_VISIBLE_DEVICES=<%= @settings["gpu"] || "0" %>
+
+windows:
+  # Score Mode = nn (only NN predicted scores)
+  - score_nn:
+      layout: tiled
+      panes:
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --context-embedding --subset hard_small --model "custom/qwen/qwen-2.5-72b-instruct@http://YOUR_MODEL_ENDPOINT/v1" --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize both --eta 10.0 --max-turns 20 --cumulative-score-mode nn --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_v3_slim --tag-suffix ablation_score_nn
+
+  # Score Mode = actual (only importance-weighted actual scores)
+  - score_actual:
+      layout: tiled
+      panes:
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --context-embedding --subset hard_small --model "custom/qwen/qwen-2.5-72b-instruct@http://YOUR_MODEL_ENDPOINT/v1" --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize both --eta 10.0 --max-turns 20 --cumulative-score-mode actual --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_v3_slim --tag-suffix ablation_score_actual
+
+  # Score Mode = mean (average of NN and actual scores)
+  - score_mean:
+      layout: tiled
+      panes:
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --context-embedding --subset hard_small --model "custom/qwen/qwen-2.5-72b-instruct@http://YOUR_MODEL_ENDPOINT/v1" --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize both --eta 10.0 --max-turns 20 --cumulative-score-mode mean --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_v3_slim --tag-suffix ablation_score_mean
+

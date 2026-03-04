@@ -1,0 +1,48 @@
+# Neural UCB Bandit Configuration - Strategy V3 - Beta Ablation (0.02-0.1)
+# Models: Qwen 2.5-72B (custom)
+# Optimize: both
+#
+# Usage:
+#   tmuxinator start -p conf/main_experiments/neural_ucb_no_ctx_v3_ds_beta005.yml
+#   tmuxinator start -p conf/main_experiments/neural_ucb_no_ctx_v3_ds_beta005.yml gpu=0 batch=40
+
+name: main-neural-ucb-v3-qwen-beta-ablation-both-batch<%= (@settings["batch"] || "40").to_s %>
+root: .
+startup_window: beta_002
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation
+  - source <%= @settings["project_root"] || "/path/to/project" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+
+windows:
+  # Beta = 0.02
+  - beta_002:
+      layout: tiled
+      panes:
+        - CUDA_VISIBLE_DEVICES=0 uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores --subset hard_small --model "custom/qwen/qwen-2.5-72b-instruct@http://YOUR_MODEL_ENDPOINT/v1" --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize both --beta 0.02 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_v3_slim --tag-suffix beta_0_02
+
+  # Beta = 0.04
+  - beta_004:
+      layout: tiled
+      panes:
+        - CUDA_VISIBLE_DEVICES=0 uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores --subset hard_small --model "custom/qwen/qwen-2.5-72b-instruct@http://YOUR_MODEL_ENDPOINT/v1" --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize both --beta 0.04 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_v3_slim --tag-suffix beta_0_04
+
+  # Beta = 0.06
+  - beta_006:
+      layout: tiled
+      panes:
+        - CUDA_VISIBLE_DEVICES=0 uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores --subset hard_small --model "custom/qwen/qwen-2.5-72b-instruct@http://YOUR_MODEL_ENDPOINT/v1" --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize both --beta 0.06 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_v3_slim --tag-suffix beta_0_06
+
+  # Beta = 0.08
+  - beta_008:
+      layout: tiled
+      panes:
+        - CUDA_VISIBLE_DEVICES=0 uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores --subset hard_small --model "custom/qwen/qwen-2.5-72b-instruct@http://YOUR_MODEL_ENDPOINT/v1" --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize both --beta 0.08 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_v3_slim --tag-suffix beta_0_08
+
+  # Beta = 0.10
+  - beta_010:
+      layout: tiled
+      panes:
+        - CUDA_VISIBLE_DEVICES=0 uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores --subset hard_small --model "custom/qwen/qwen-2.5-72b-instruct@http://YOUR_MODEL_ENDPOINT/v1" --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize both --beta 0.10 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_v3_slim --tag-suffix beta_0_10
+

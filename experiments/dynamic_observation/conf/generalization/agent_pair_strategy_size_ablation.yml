@@ -1,0 +1,63 @@
+# Ablation Study: Strategy Space Size for Agent-Pair Generalization
+#
+# Test different strategy space sizes: 6, 8, 12, 24, 48
+# This ablation tests whether larger strategy spaces improve generalization
+# when training on some agent pairs and testing on others within same scenarios.
+#
+# Strategy versions:
+#   - s6:  6 strategies (subset of v3)
+#   - s8:  8 strategies (subset of v3)
+#   - v3:  12 strategies (original V3, baseline)
+#   - s24: 24 strategies (v3 + paraphrases)
+#   - s48: 48 strategies (v3 + more paraphrases)
+#
+# Usage:
+#   # Run all sizes in parallel
+#   tmuxinator start -p conf/generalization/agent_pair_strategy_size_ablation.yml
+#
+#   # Run specific size only
+#   tmuxinator start -p conf/generalization/agent_pair_strategy_size_ablation.yml mode=s12
+
+name: gen-agent-pair-strategy-size-<%=@settings["mode"] || "all" %>
+root: .
+startup_window: main
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation
+  - source <%= @settings["project_root"] || "/path/to/project" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+
+<%- model = @settings["model"] || "openrouter/qwen/qwen-2.5-72b-instruct" -%>
+<%- reward_model = @settings["reward_model"] || "openrouter/deepseek/deepseek-v3.2" -%>
+<%- eta = @settings["eta"] || "10.0" -%>
+<%- max_turns = @settings["max_turns"] || "10" -%>
+<%- mode = @settings["mode"] || "all" -%>
+<%- push_db = @settings["push_db"] || "true" -%>
+<%- push_db_flag = push_db == "true" ? "--push-to-db" : "" -%>
+
+# Common args template
+<%- common_args = "--phase both --split A --model \"#{model}\" --reward-eval-model \"#{reward_model}\" --bandit-type adversarial --eta #{eta} --max-turns #{max_turns} --train-ratio 3 --test-ratio 2 --output-dir results/generalization_agent_pair #{push_db_flag}" -%>
+
+windows:
+  - main:
+      layout: tiled
+      panes:
+        <%- if mode == "all" || mode == "s6" -%>
+        # Strategy Space Size = 6
+        - s6: uv run python run_agent_pair_generalization.py <%= common_args %> --strategy-version s6 --strategy-cache-dir cache/strategy_embeddings_s6 --suffix ablation_size_6
+        <%- end -%>
+
+        <%- if mode == "all" || mode == "s8" -%>
+        # Strategy Space Size = 8
+        - s8: uv run python run_agent_pair_generalization.py <%= common_args %> --strategy-version s8 --strategy-cache-dir cache/strategy_embeddings_s8 --suffix ablation_size_8
+        <%- end -%>
+
+        <%- if mode == "all" || mode == "s24" -%>
+        # Strategy Space Size = 24
+        - s24: uv run python run_agent_pair_generalization.py <%= common_args %> --strategy-version s24 --strategy-cache-dir cache/strategy_embeddings_s24 --suffix ablation_size_24
+        <%- end -%>
+
+        <%- if mode == "all" || mode == "s48" -%>
+        # Strategy Space Size = 48
+        - s48: uv run python run_agent_pair_generalization.py <%= common_args %> --strategy-version s48 --strategy-cache-dir cache/strategy_embeddings_s48 --suffix ablation_size_48
+        <%- end -%>

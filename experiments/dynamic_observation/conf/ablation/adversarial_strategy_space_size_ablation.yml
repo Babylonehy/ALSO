@@ -1,0 +1,59 @@
+# Ablation Study: Strategy Space Size
+#
+# Test different strategy space sizes: 5, 10, 12 (v3), 20, 50, 100
+# Uses generated strategy variants from scripts/generate_strategy_variants.py
+#
+# Strategy versions:
+#   - s5:  5 strategies (1 baseline + 4 active)
+#   - s10: 10 strategies (1 baseline + 9 active)
+#   - v3:  12 strategies (original V3, as reference baseline)
+#   - s20: 20 strategies (1 baseline + 19 active, with paraphrases)
+#   - s50: 50 strategies (1 baseline + 49 active, with paraphrases)
+#   - s100: 100 strategies (1 baseline + 99 active, with paraphrases)
+#
+# Usage:
+#   tmuxinator start -p conf/ablation/adversarial_strategy_space_size_ablation.yml gpu=0
+
+name: ablation-adversarial-strategy-space-size-batch<%= (@settings["batch"] || "30").to_s %>
+root: .
+startup_window: size_v3
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation
+  - source <%= @settings["project_root"] || "/path/to/project" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+  - export CUDA_VISIBLE_DEVICES=<%= @settings["gpu"] || "0" %>
+
+windows:
+  # Strategy Space Size = 5 (subset of V3)
+  - size_5:
+      layout: tiled
+      panes:
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version s5 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --context-embedding --subset hard_small --model "custom/qwen/qwen-2.5-72b-instruct@http://YOUR_MODEL_ENDPOINT/v1" --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize both --eta 10.0 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_s5 --tag-suffix ablation_space_size_5
+
+  # Strategy Space Size = 10 (subset of V3)
+  - size_10:
+      layout: tiled
+      panes:
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version s10 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --context-embedding --subset hard_small --model "custom/qwen/qwen-2.5-72b-instruct@http://YOUR_MODEL_ENDPOINT/v1" --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize both --eta 10.0 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_s10 --tag-suffix ablation_space_size_10
+
+  # Strategy Space Size = 12 (V3 baseline - original)
+  - size_v3:
+      layout: tiled
+      panes:
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --context-embedding --subset hard_small --model "custom/qwen/qwen-2.5-72b-instruct@http://YOUR_MODEL_ENDPOINT/v1" --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize both --eta 10.0 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_v3 --tag-suffix ablation_space_size_12_v3
+
+  # Strategy Space Size = 20 (V3 + 8 paraphrases)
+  - size_20:
+      layout: tiled
+      panes:
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version s20 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --context-embedding --subset hard_small --model "custom/qwen/qwen-2.5-72b-instruct@http://YOUR_MODEL_ENDPOINT/v1" --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize both --eta 10.0 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_s20 --tag-suffix ablation_space_size_20
+
+  # Strategy Space Size = 50 (V3 + paraphrases)
+  - size_50:
+      layout: tiled
+      panes:
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version s50 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --context-embedding --subset hard_small --model "custom/qwen/qwen-2.5-72b-instruct@http://YOUR_MODEL_ENDPOINT/v1" --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize both --eta 10.0 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_s50 --tag-suffix ablation_space_size_50
+
+  # Strategy Space Size = 100 (V3 + many paraphrases)
+  

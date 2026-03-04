@@ -1,0 +1,61 @@
+# Default configuration for bandit simulation with context embedding
+# Override with command line: python run_bandit_hydra.py scenario_id=xxx bandit.type=exp3
+
+defaults:
+  - bandit: adversarial
+  - _self_
+
+# Experiment metadata
+experiment:
+  name: bandit_context_embedding
+  tag: null  # Custom experiment tag, auto-generated if null
+  seed: null  # Random seed for reproducibility
+  output_dir: experiments/dynamic_observation/outputs  # Base output directory (relative to project root)
+  resume: null  # Path to experiment directory to resume from (e.g., outputs/bandit_adversarial_p1_20251217_140922)
+
+# Scenario configuration
+# Single scenario mode: set scenario_id
+# Batch mode: set batch.enabled=true and batch.subset
+scenario_id: "01H7VKQHT745XAP1A4DDV8H419"
+
+# Batch mode configuration
+batch:
+  enabled: false  # Enable batch mode to run multiple scenarios
+  subset: "hard"  # Scenario subset to use (hard, easy, etc.)
+  max_episodes: null  # Maximum number of episodes to run (null = all)
+  concurrency: 4  # Number of concurrent simulations
+
+# Model configuration
+model:
+  default: "openrouter/openai/gpt-4o-mini"
+  p1: null  # Override for P1 agent
+  p2: null  # Override for P2 agent
+  env: "openrouter/openai/gpt-4o"  # Environment/evaluator model
+  max_tokens: 4096
+
+# Simulation parameters
+simulation:
+  max_turns: 30
+  push_to_db: true  # Save episode to database (required for resume)
+
+# Context embedding configuration
+context_embedding:
+  enabled: false
+  model: "qwen/qwen3-embedding-4b"
+  interaction_only: false  # If true, exclude scenario/background/goal from context
+  dim: 2560  # Expected dimension (auto-detected at runtime)
+
+# Embeddings directory (for pre-generated bio embeddings)
+embeddings_dir: null  # Auto-detected based on scenario
+
+# Hydra configuration
+hydra:
+  run:
+    dir: .  # Don't create output dir, code will handle it
+  sweep:
+    dir: ${experiment.output_dir}/sweep_${now:%Y%m%d_%H%M%S}
+    subdir: ${hydra.job.num}
+  job:
+    chdir: false  # Don't change working directory
+  output_subdir: null  # Don't create .hydra subdir
+

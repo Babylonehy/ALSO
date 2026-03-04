@@ -1,0 +1,50 @@
+# Tmuxinator configuration for evoprompt_ga experiments
+# Windows by model, panes by optimize mode (p1/p2/both)
+#
+# Usage: tmuxinator start -p conf/bandit_evoprompt_ga.yml gpu=0
+#        tmuxinator start -p conf/bandit_evoprompt_ga.yml gpu=4 batch=50
+#        tmuxinator start -p conf/bandit_evoprompt_ga.yml gpu=0 emd_dir=embeddings_backgrounds_strategic-8b/hard
+
+name: evoprompt_ga-batch<%= (@settings["batch"] || "30").to_s %>-<%= @settings["prefix"] || "" %>
+root: .
+startup_window: qwen25_72b
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation
+  - source <%= @settings["project_root"] || "/path/to/project" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+  - export CUDA_VISIBLE_DEVICES=<%= @settings["gpu"] || "0" %>
+
+windows:
+#   # Window 1: deepseek-v3.2
+  - deepseek-v32:
+      layout: tiled
+      panes:
+        # Optimize: p1
+        - uv run python run_bandit_simulation_context.py --embeddings-dir <%= @settings["emd_dir"] || "embeddings_backgrounds_strategic-8b/hard" %> --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --subset hard --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type evoprompt_ga --optimize p1 --evolution-interval 5 --max-turns 20 --push-to-db
+        # Optimize: p2
+        - uv run python run_bandit_simulation_context.py --embeddings-dir <%= @settings["emd_dir"] || "embeddings_backgrounds_strategic-8b/hard" %> --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --subset hard --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type evoprompt_ga --optimize p2 --evolution-interval 5 --max-turns 20 --push-to-db
+        # Optimize: both
+        - uv run python run_bandit_simulation_context.py --embeddings-dir <%= @settings["emd_dir"] || "embeddings_backgrounds_strategic-8b/hard" %> --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --subset hard --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type evoprompt_ga --optimize both --evolution-interval 5 --max-turns 20 --push-to-db
+
+  # Window 2: qwen-2.5-72b-instruct (commented out, uncomment to use)
+  - qwen25_72b:
+      layout: tiled
+      panes:
+        # Optimize: p1
+        - uv run python run_bandit_simulation_context.py --embeddings-dir <%= @settings["emd_dir"] || "embeddings_backgrounds_strategic-8b/hard" %> --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --subset hard --model openrouter/qwen/qwen-2.5-72b-instruct --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type evoprompt_ga --optimize p1 --max-turns 20 --push-to-db --evolution-interval 5
+        # Optimize: p2
+        - uv run python run_bandit_simulation_context.py --embeddings-dir <%= @settings["emd_dir"] || "embeddings_backgrounds_strategic-8b/hard" %> --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --subset hard --model openrouter/qwen/qwen-2.5-72b-instruct --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type evoprompt_ga --optimize p2 --max-turns 20 --push-to-db --evolution-interval 5
+        # Optimize: both
+        - uv run python run_bandit_simulation_context.py --embeddings-dir <%= @settings["emd_dir"] || "embeddings_backgrounds_strategic-8b/hard" %> --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --subset hard --model openrouter/qwen/qwen-2.5-72b-instruct --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type evoprompt_ga --optimize both --max-turns 20 --push-to-db --evolution-interval 5
+
+  # Window 3: llama-3.3-70b-instruct (commented out, uncomment to use)
+  # - llama33_70b:
+  #     layout: tiled
+  #     panes:
+  #       # Optimize: p1
+  #       - uv run python run_bandit_simulation_context.py --embeddings-dir <%= @settings["emd_dir"] || "embeddings_backgrounds_strategic-8b/hard" %> --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --subset hard --model openrouter/meta-llama/llama-3.3-70b-instruct --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type evoprompt_ga --optimize p1 --max-turns 20 --push-to-db --evolution-interval 5
+  #       # Optimize: p2
+  #       - uv run python run_bandit_simulation_context.py --embeddings-dir <%= @settings["emd_dir"] || "embeddings_backgrounds_strategic-8b/hard" %> --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --subset hard --model openrouter/meta-llama/llama-3.3-70b-instruct --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type evoprompt_ga --optimize p2 --max-turns 20 --push-to-db --evolution-interval 5
+  #       # Optimize: both
+  #       - uv run python run_bandit_simulation_context.py --embeddings-dir <%= @settings["emd_dir"] || "embeddings_backgrounds_strategic-8b/hard" %> --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --subset hard --model openrouter/meta-llama/llama-3.3-70b-instruct --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type evoprompt_ga --optimize both --max-turns 20 --push-to-db --evolution-interval 5

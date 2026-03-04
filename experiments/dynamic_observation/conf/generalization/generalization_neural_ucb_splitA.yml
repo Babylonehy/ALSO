@@ -1,0 +1,50 @@
+# Cross-Scenario Generalization Experiment - Neural UCB Bandit - Split A
+#
+# This experiment evaluates cross-scenario generalization:
+# - Train on 7 scenarios (Split A train set)
+# - Test on 7 held-out scenarios (Split A test set)
+#
+# Two panes run in parallel:
+# | Pane     | Pretrain | Test Learning | Description                    |
+# |----------|----------|---------------|--------------------------------|
+# | baseline | ❌       | ✅            | Cold start (from scratch)      |
+# | both     | ✅       | ❌            | Train + frozen test            |
+#
+# For finetune, run separately after 'both' completes:
+#   tmuxinator start -p conf/generalization/generalization_neural_ucb_splitA.yml \
+#       mode=finetune model_dir=results/generalization/neural_ucb_splitA_xxx/train
+#
+# Usage:
+#   tmuxinator start -p conf/generalization/generalization_neural_ucb_splitA.yml
+
+name: generalization-neural-ucb-splitA
+root: .
+startup_window: main
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation
+  - source <%= @settings["project_root"] || "/path/to/project" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+
+<%- model = @settings["model"] || "openrouter/qwen/qwen-2.5-72b-instruct" -%>
+<%- reward_model = @settings["reward_model"] || "openrouter/deepseek/deepseek-v3.2" -%>
+<%- beta = @settings["beta"] || "1.0" -%>
+<%- max_turns = @settings["max_turns"] || "10" -%>
+<%- mode = @settings["mode"] || "parallel" -%>
+<%- model_dir = @settings["model_dir"] || "" -%>
+
+windows:
+  - main:
+      layout: tiled
+      panes:
+        <%- if mode == "finetune" && model_dir != "" -%>
+        # Finetune mode (run after 'both' completes)
+        - finetune: uv run python run_generalization_experiment.py --phase finetune --split A --model "<%= model %>" --reward-eval-model "<%= reward_model %>" --bandit-type neural_ucb --beta <%= beta %> --max-turns <%= max_turns %> --output-dir results/generalization --strategy-cache-dir cache/strategy_embeddings_v3_slim --model-dir "<%= model_dir %>"
+        <%- else -%>
+        # Pane 1: Baseline (no pretraining, online learning on test set)
+        - baseline: uv run python run_generalization_experiment.py --phase baseline --split A --model "<%= model %>" --reward-eval-model "<%= reward_model %>" --bandit-type neural_ucb --beta <%= beta %> --max-turns <%= max_turns %> --output-dir results/generalization --strategy-cache-dir cache/strategy_embeddings_v3_slim
+
+        # Pane 2: Train + Test (frozen policy)
+        - both: uv run python run_generalization_experiment.py --phase both --split A --model "<%= model %>" --reward-eval-model "<%= reward_model %>" --bandit-type neural_ucb --beta <%= beta %> --max-turns <%= max_turns %> --output-dir results/generalization --strategy-cache-dir cache/strategy_embeddings_v3_slim
+        <%- end -%>
+

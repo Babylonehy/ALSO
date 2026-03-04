@@ -1,0 +1,42 @@
+# Tmuxinator configuration for neural_evolution experiments with custom scenarios
+# Supports custom scenario-ids file for targeted testing
+#
+# Usage:
+#   # Run with default scenarios (pb_better_ne_worse)
+#   tmuxinator start -p conf/bandit_neural_evo_custom.yml
+#
+#   # Run with custom scenario file
+#   tmuxinator start -p conf/bandit_neural_evo_custom.yml scenarios=analysis/my_scenarios.txt
+#
+#   # Full customization
+#   tmuxinator start -p conf/bandit_neural_evo_custom.yml gpu=0 batch=5 scenarios=analysis/pb_better_ne_worse_env_ids.txt eta=0.5
+#
+# Parameters:
+#   gpu       - GPU device ID (default: 0)
+#   batch     - Batch size / concurrency (default: 5)
+#   scenarios - Path to scenario IDs file relative to experiments/dynamic_observation (default: analysis/pb_better_ne_worse_env_ids.txt)
+#   eta       - EXP3 exploration parameter (default: 0.5)
+#   emd_dir   - Embeddings directory (default: embeddings_backgrounds_strategic-8b/hard)
+#   prefix    - Custom prefix for experiment name
+
+name: ne_custom-<%= @settings["prefix"] || "test" %>-batch<%= (@settings["batch"] || "5").to_s %>
+root: ~
+startup_window: neural_evo
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation
+  - source <%= @settings["project_root"] || "/path/to/project" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+  - export CUDA_VISIBLE_DEVICES=<%= @settings["gpu"] || "0" %>
+
+windows:
+  - neural_evo:
+      layout: tiled
+      panes:
+        # Optimize: p1
+        - CUDA_VISIBLE_DEVICES=<%= @settings["gpu"] || "0" %> uv run python run_bandit_simulation_context.py --batch --scenario-ids <%= @settings["scenarios"] || "analysis/pb_better_ne_worse_env_ids.txt" %> --embeddings-dir <%= @settings["emd_dir"] || "embeddings_backgrounds_strategic-8b/hard" %> --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --context-embedding --no-mask-unselected-scores --batch-size <%= @settings["batch"] || "5" %> --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_evolution --optimize p1 --eta <%= @settings["eta"] || "0.5" %> --max-turns 20 --evolution-interval 5 --push-to-db --subset hard
+        # Optimize: p2
+        - CUDA_VISIBLE_DEVICES=<%= @settings["gpu"] || "0" %> uv run python run_bandit_simulation_context.py --batch --scenario-ids <%= @settings["scenarios"] || "analysis/pb_better_ne_worse_env_ids.txt" %> --embeddings-dir <%= @settings["emd_dir"] || "embeddings_backgrounds_strategic-8b/hard" %> --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --context-embedding --no-mask-unselected-scores --batch-size <%= @settings["batch"] || "5" %> --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_evolution --optimize p2 --eta <%= @settings["eta"] || "0.5" %> --max-turns 20 --evolution-interval 5 --push-to-db --subset hard
+        # Optimize: both
+        - CUDA_VISIBLE_DEVICES=<%= @settings["gpu"] || "0" %> uv run python run_bandit_simulation_context.py --batch --scenario-ids <%= @settings["scenarios"] || "analysis/pb_better_ne_worse_env_ids.txt" %> --embeddings-dir <%= @settings["emd_dir"] || "embeddings_backgrounds_strategic-8b/hard" %> --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --context-embedding --no-mask-unselected-scores --batch-size <%= @settings["batch"] || "5" %> --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_evolution --optimize both --eta <%= @settings["eta"] || "0.5" %> --max-turns 20 --evolution-interval 5 --push-to-db --subset hard
+

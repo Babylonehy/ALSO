@@ -1,0 +1,50 @@
+# Tmuxinator configuration for neural_ucb_no_ctx experiments
+# Windows by model, panes by optimize mode (p1/p2/both)
+#
+# Usage: tmuxinator start -p conf/bandit_neural_ucb_no_ctx.yml gpu=0
+#        tmuxinator start -p conf/bandit_neural_ucb_no_ctx.yml gpu=4 batch=50
+#        tmuxinator start -p conf/bandit_neural_ucb_no_ctx.yml gpu=0 emd_dir=embeddings_backgrounds_strategic-8b/hard
+
+name: neural_ucb_no_ctx-batch<%= (@settings["batch"] || "30").to_s %>-<%= @settings["prefix"] || "" %>
+root: .
+startup_window: qwen25_72b
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation
+  - source <%= @settings["project_root"] || "/path/to/project" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+  - export CUDA_VISIBLE_DEVICES=<%= @settings["gpu"] || "0" %>
+
+windows:
+  # Window 1: qwen-2.5-72b-instruct
+  - qwen25_72b:
+      layout: tiled
+      panes:
+        # Optimize: p1
+        - uv run python run_bandit_simulation_context.py --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --subset hard --model openrouter/qwen/qwen-2.5-72b-instruct --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize p1 --beta 0.5 --max-turns 30 --push-to-db
+        # Optimize: p2
+        - uv run python run_bandit_simulation_context.py --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --subset hard --model openrouter/qwen/qwen-2.5-72b-instruct --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize p2 --beta 0.5 --max-turns 30 --push-to-db
+        # Optimize: both
+        - uv run python run_bandit_simulation_context.py --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --subset hard --model openrouter/qwen/qwen-2.5-72b-instruct --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize both --beta 0.5 --max-turns 30 --push-to-db
+
+  # Window 2: deepseek-v3.2
+  - deepseek_v32:
+      layout: tiled
+      panes:
+        # Optimize: p1
+        - uv run python run_bandit_simulation_context.py --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --subset hard --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize p1 --beta 0.5 --max-turns 30 --push-to-db
+        # Optimize: p2
+        - uv run python run_bandit_simulation_context.py --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --subset hard --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize p2 --beta 0.5 --max-turns 30 --push-to-db
+        # Optimize: both
+        - uv run python run_bandit_simulation_context.py --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --subset hard --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize both --beta 0.5 --max-turns 30 --push-to-db
+
+  # Window 3: llama-3.3-70b-instruct
+  # - llama33_70b:
+  #     layout: tiled
+  #     panes:
+  #       # Optimize: p1
+  #       - uv run python run_bandit_simulation_context.py --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --subset hard --model openrouter/meta-llama/llama-3.3-70b-instruct --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize p1 --beta 0.5 --max-turns 30 --push-to-db
+  #       # Optimize: p2
+  #       - uv run python run_bandit_simulation_context.py --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --subset hard --model openrouter/meta-llama/llama-3.3-70b-instruct --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize p2 --beta 0.5 --max-turns 30 --push-to-db
+  #       # Optimize: both
+  #       - uv run python run_bandit_simulation_context.py --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --subset hard --model openrouter/meta-llama/llama-3.3-70b-instruct --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize both --beta 0.5 --max-turns 30 --push-to-db

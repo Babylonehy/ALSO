@@ -1,0 +1,48 @@
+# Cross-Scenario Generalization Experiment - Adversarial Bandit - Fast Context Verification (Single Scenario)
+#
+# This experiment evaluates cross-scenario generalization:
+# - Single Scenario Split: Find one Env with 5 combos
+# - Train on 3 combos
+# - Test on 2 combos
+#
+# Changes for Fast Verification:
+# - max_turns = 5 (reduced from 10)
+# - context embedding ENABLED
+# - single-env-split ENABLED
+#
+# Usage:
+#   tmuxinator start -p conf/generalization/generalization_adversarial_splitA_fast_ctx.yml
+#
+
+name: gen-adv-single-fast-ctx
+root: .
+startup_window: main
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation
+  - source <%= @settings["project_root"] || "/path/to/project" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+
+<%- model = @settings["model"] || "openrouter/qwen/qwen-2.5-72b-instruct" -%>
+<%- reward_model = @settings["reward_model"] || "openrouter/deepseek/deepseek-v3.2" -%>
+<%- eta = @settings["eta"] || "10.0" -%>
+<%- max_turns = @settings["max_turns"] || "5" -%>  # Reduced to 5 for speed
+<%- mode = @settings["mode"] || "parallel" -%>
+<%- model_dir = @settings["model_dir"] || "" -%>
+<%- suffix = @settings["suffix"] || "fast_ctx_single" -%>
+<%- push_db = @settings["push_db"] || "true" -%>
+<%- push_db_flag = push_db == "true" ? "--push-to-db" : "" -%>
+<%- suffix_flag = suffix != "" ? "--suffix #{suffix}" : "" -%>
+
+# Context settings + Single Env Split
+<%- context_flag = "--context-embedding --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --single-env-split" -%>
+
+windows:
+  - main:
+      layout: tiled
+      panes:
+        # Pane 1: Baseline (no pretraining, online learning on test set)
+        - baseline: uv run python run_generalization_experiment.py --phase baseline --split A --model "<%= model %>" --reward-eval-model "<%= reward_model %>" --bandit-type adversarial --eta <%= eta %> --max-turns <%= max_turns %> --output-dir results/generalization --strategy-cache-dir cache/strategy_embeddings_v3_slim <%= push_db_flag %> <%= suffix_flag %> <%= context_flag %>
+
+        # Pane 2: Train + Test (frozen policy)
+        - both: uv run python run_generalization_experiment.py --phase both --split A --model "<%= model %>" --reward-eval-model "<%= reward_model %>" --bandit-type adversarial --eta <%= eta %> --max-turns <%= max_turns %> --output-dir results/generalization --strategy-cache-dir cache/strategy_embeddings_v3_slim <%= push_db_flag %> <%= suffix_flag %> <%= context_flag %>

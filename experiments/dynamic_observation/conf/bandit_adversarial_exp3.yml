@@ -1,0 +1,61 @@
+# Tmuxinator configuration for adversarial experiments with EXP3-style multiplicative weights
+# 
+# This uses the new EXP3-style multiplicative weight updates instead of cumulative scores:
+# - weights are multiplicatively updated: w *= exp(eta * reward)
+# - importance weighting enabled for unbiased reward estimation
+# - gamma mixing for exploration guarantee
+#
+# Key parameters:
+#   --eta 0.5              : EXP3 learning rate (lower = more stable, higher = faster adaptation)
+#   --gamma 0.1            : exploration guarantee (10% uniform exploration)
+#   --importance-weighted-reward : use r_hat = r / p for unbiased estimates
+#
+# Usage: tmuxinator start -p conf/bandit_adversarial_exp3.yml gpu=0
+#        tmuxinator start -p conf/bandit_adversarial_exp3.yml gpu=4 batch=50
+#        tmuxinator start -p conf/bandit_adversarial_exp3.yml gpu=0 emd_dir=embeddings_backgrounds_strategic-8b/hard
+#        tmuxinator start -p conf/bandit_adversarial_exp3.yml gpu=0 eta=0.3
+
+name: fusion-adversarial-exp3-eta<%= (@settings["eta"] || "0.5").to_s.gsub(".", "_") %>-<%= @settings["prefix"] || "" %>
+root: ~
+startup_window: qwen25_72b
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation
+  - source <%= @settings["project_root"] || "/path/to/project" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+  - export CUDA_VISIBLE_DEVICES=<%= @settings["gpu"] || "0" %>
+
+windows:
+  # Window 1: qwen-2.5-72b-instruct
+  - qwen25_72b:
+      layout: tiled
+      panes:
+        # Optimize: p1
+        - uv run python run_bandit_simulation_context.py --embeddings-dir <%= @settings["emd_dir"] || "embeddings_backgrounds_strategic-8b/hard" %> --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --context-embedding --subset hard --model openrouter/qwen/qwen-2.5-72b-instruct --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize p1 --eta <%= @settings["eta"] || "0.5" %> --gamma 0.1 --importance-weighted-reward --max-turns 30 --push-to-db
+        # Optimize: p2
+        - uv run python run_bandit_simulation_context.py --embeddings-dir <%= @settings["emd_dir"] || "embeddings_backgrounds_strategic-8b/hard" %> --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --context-embedding --subset hard --model openrouter/qwen/qwen-2.5-72b-instruct --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize p2 --eta <%= @settings["eta"] || "0.5" %> --gamma 0.1 --importance-weighted-reward --max-turns 30 --push-to-db
+        # Optimize: both
+        - uv run python run_bandit_simulation_context.py --embeddings-dir <%= @settings["emd_dir"] || "embeddings_backgrounds_strategic-8b/hard" %> --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --context-embedding --subset hard --model openrouter/qwen/qwen-2.5-72b-instruct --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize both --eta <%= @settings["eta"] || "0.5" %> --gamma 0.1 --importance-weighted-reward --max-turns 30 --push-to-db
+
+  # Window 2: deepseek-v3.2
+  - deepseek_v32:
+      layout: tiled
+      panes:
+        # Optimize: p1
+        - uv run python run_bandit_simulation_context.py --embeddings-dir <%= @settings["emd_dir"] || "embeddings_backgrounds_strategic-8b/hard" %> --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --context-embedding --subset hard --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize p1 --eta <%= @settings["eta"] || "0.5" %> --gamma 0.1 --importance-weighted-reward --max-turns 30 --push-to-db
+        # Optimize: p2
+        - uv run python run_bandit_simulation_context.py --embeddings-dir <%= @settings["emd_dir"] || "embeddings_backgrounds_strategic-8b/hard" %> --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --context-embedding --subset hard --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize p2 --eta <%= @settings["eta"] || "0.5" %> --gamma 0.1 --importance-weighted-reward --max-turns 30 --push-to-db
+        # Optimize: both
+        - uv run python run_bandit_simulation_context.py --embeddings-dir <%= @settings["emd_dir"] || "embeddings_backgrounds_strategic-8b/hard" %> --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --context-embedding --subset hard --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize both --eta <%= @settings["eta"] || "0.5" %> --gamma 0.1 --importance-weighted-reward --max-turns 30 --push-to-db
+
+  # Window 3: llama-3.3-70b-instruct
+  # - llama33_70b:
+  #     layout: tiled
+  #     panes:
+  #       # Optimize: p1
+  #       - uv run python run_bandit_simulation_context.py --embeddings-dir <%= @settings["emd_dir"] || "embeddings_backgrounds_strategic-8b/hard" %> --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --context-embedding --subset hard --model openrouter/meta-llama/llama-3.3-70b-instruct --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize p1 --eta <%= @settings["eta"] || "0.5" %> --gamma 0.1 --importance-weighted-reward --max-turns 30 --push-to-db
+  #       # Optimize: p2
+  #       - uv run python run_bandit_simulation_context.py --embeddings-dir <%= @settings["emd_dir"] || "embeddings_backgrounds_strategic-8b/hard" %> --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --context-embedding --subset hard --model openrouter/meta-llama/llama-3.3-70b-instruct --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize p2 --eta <%= @settings["eta"] || "0.5" %> --gamma 0.1 --importance-weighted-reward --max-turns 30 --push-to-db
+  #       # Optimize: both
+  #       - uv run python run_bandit_simulation_context.py --embeddings-dir <%= @settings["emd_dir"] || "embeddings_backgrounds_strategic-8b/hard" %> --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "30" %> --no-mask-unselected-scores --context-embedding --subset hard --model openrouter/meta-llama/llama-3.3-70b-instruct --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize both --eta <%= @settings["eta"] || "0.5" %> --gamma 0.1 --importance-weighted-reward --max-turns 30 --push-to-db
+

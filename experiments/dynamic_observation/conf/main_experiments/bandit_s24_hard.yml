@@ -1,0 +1,35 @@
+# Main Experiment: Neural UCB and Adversarial with 24 strategies on hard subset
+#
+# Uses s24 strategy space (24 strategies) on full hard subset
+#
+# Prerequisites:
+#   Generate cache first:
+#   uv run python scripts/generate_strategy_cache_ablation.py --versions s24 --subset hard
+#
+# Usage:
+#   tmuxinator start -p conf/main_experiments/bandit_s24_hard.yml gpu=0 batch=70
+
+name: bandit-s24-hard-batch<%= (@settings["batch"] || "70").to_s %>
+root: .
+startup_window: adversarial
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation
+  - source <%= @settings["project_root"] || "/path/to/project" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+  - export CUDA_VISIBLE_DEVICES=<%= @settings["gpu"] || "0" %>
+
+windows:
+  # Adversarial Bandit (EXP3) with s24
+  - adversarial:
+      layout: tiled
+      panes:
+        # optimize both
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version s24 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "70" %> --no-mask-unselected-scores --context-embedding --subset hard --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize both --eta 10.0 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_s24 --tag-suffix s24_hard_ds
+
+  # Neural UCB with s24
+  - neural_ucb:
+      layout: tiled
+      panes:
+        # optimize both
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version s24 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "70" %> --no-mask-unselected-scores --context-embedding --subset hard --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize both --alpha 0.1 --beta 1.0 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_s24 --tag-suffix s24_hard_ds

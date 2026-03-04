@@ -1,0 +1,34 @@
+# Ablation Study: Neural Evolution WITHOUT Context Embedding
+# 
+# This ablation tests the impact of removing context embedding from the neural network.
+# The NN only uses strategy embeddings, not the concatenated context embedding.
+#
+# Comparison:
+#   - Full model: uses --context-embedding (strategy_embedding + context_embedding as input)
+#   - This ablation: NO --context-embedding (only strategy_embedding as input)
+#
+# Usage:
+#   tmuxinator start -p conf/ablation/neural_evo_no_context.yml gpu=0
+#   tmuxinator start -p conf/ablation/neural_evo_no_context.yml project_root=/path/to/project gpu=0
+
+name: ablation-neural-evo-no-context-<%= (@settings["batch"] || "40").to_s %>
+root: .
+startup_window: main
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation
+  - source <%= @settings["project_root"] || "/path/to/project" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+  - export CUDA_VISIBLE_DEVICES=<%= @settings["gpu"] || "0" %>
+
+windows:
+  - main:
+      layout: tiled
+      panes:
+        # Optimize: p1 (NO --context-embedding)
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --population-size 13 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores --subset hard --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_evolution --optimize p1 --eta <%= @settings["eta"] || "10" %> --max-turns 20 --push-to-db --evolution-interval 5 --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_v3_slim
+        # Optimize: p2 (NO --context-embedding)
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --population-size 13 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores --subset hard --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_evolution --optimize p2 --eta <%= @settings["eta"] || "10" %> --max-turns 20 --push-to-db --evolution-interval 5 --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_v3_slim
+        # Optimize: both (NO --context-embedding)
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --population-size 13 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores --subset hard --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_evolution --optimize both --eta <%= @settings["eta"] || "10" %> --max-turns 20 --push-to-db --evolution-interval 5 --strategy-cache-dir <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation/cache/strategy_embeddings_v3_slim
+

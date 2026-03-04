@@ -1,0 +1,59 @@
+# Agent-Pair Generalization Experiment - Adversarial Bandit - Split A
+#
+# This experiment evaluates within-scenario generalization across different agent pairs:
+# - Train on 3 agent pairs per scenario
+# - Test on 2 held-out agent pairs per scenario (same scenarios)
+#
+# Key difference from cross-scenario experiments:
+# - Cross-scenario: Different scenarios for train vs test
+# - Agent-pair: Same scenarios, different agent pairs for train vs test
+#
+# Usage:
+#   tmuxinator start -p conf/generalization/agent_pair_splitA.yml
+#
+#   # Custom model with suffix
+#   tmuxinator start -p conf/generalization/agent_pair_splitA.yml \
+#       model="custom/qwen/qwen-2.5-72b-instruct@http://127.0.0.1:8888/v1" suffix="qwen_local"
+
+name: gen-agent-pair-<%=@settings["mode"] || "parallel" %>
+root: .
+startup_window: main
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/path/to/project" %>/experiments/dynamic_observation
+  - source <%= @settings["project_root"] || "/path/to/project" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+
+<%- model = @settings["model"] || "openrouter/qwen/qwen-2.5-72b-instruct" -%>
+<%- reward_model = @settings["reward_model"] || "openrouter/deepseek/deepseek-v3.2" -%>
+<%- eta = @settings["eta"] || "10.0" -%>
+<%- max_turns = @settings["max_turns"] || "10" -%>
+<%- mode = @settings["mode"] || "parallel" -%>
+<%- model_dir = @settings["model_dir"] || "" -%>
+<%- suffix = @settings["suffix"] || "" -%>
+<%- push_db = @settings["push_db"] || "true" -%>
+<%- train_ratio = @settings["train_ratio"] || "3" -%>
+<%- test_ratio = @settings["test_ratio"] || "2" -%>
+<%- push_db_flag = push_db == "true" ? "--push-to-db" : "" -%>
+<%- suffix_flag = suffix != "" ? "--suffix #{suffix}" : "" -%>
+
+windows:
+  - main:
+      layout: tiled
+      panes:
+        <%- if mode == "finetune" && model_dir != "" -%>
+        # Finetune mode (run after 'both' completes)
+        - finetune: uv run python run_agent_pair_generalization.py --phase finetune --split A --model "<%= model %>" --reward-eval-model "<%= reward_model %>" --bandit-type adversarial --eta <%= eta %> --max-turns <%= max_turns %> --train-ratio <%= train_ratio %> --test-ratio <%= test_ratio %> --output-dir results/generalization_agent_pair --strategy-cache-dir cache/strategy_embeddings_v3_slim --model-dir "<%= model_dir %>" <%= push_db_flag %> <%= suffix_flag %>
+        <%- elsif mode == "baseline" -%>
+        # Baseline only (no pretraining, online learning on test agent pairs)
+        - baseline: uv run python run_agent_pair_generalization.py --phase baseline --split A --model "<%= model %>" --reward-eval-model "<%= reward_model %>" --bandit-type adversarial --eta <%= eta %> --max-turns <%= max_turns %> --train-ratio <%= train_ratio %> --test-ratio <%= test_ratio %> --output-dir results/generalization_agent_pair --strategy-cache-dir cache/strategy_embeddings_v3_slim <%= push_db_flag %> <%= suffix_flag %>
+        <%- elsif mode == "both" -%>
+        # Train + Test only (frozen policy on test agent pairs)
+        - both: uv run python run_agent_pair_generalization.py --phase both --split A --model "<%= model %>" --reward-eval-model "<%= reward_model %>" --bandit-type adversarial --eta <%= eta %> --max-turns <%= max_turns %> --train-ratio <%= train_ratio %> --test-ratio <%= test_ratio %> --output-dir results/generalization_agent_pair --strategy-cache-dir cache/strategy_embeddings_v3_slim <%= push_db_flag %> <%= suffix_flag %>
+        <%- else -%>
+        # Pane 1: Baseline (no pretraining, online learning on test agent pairs)
+        - baseline: uv run python run_agent_pair_generalization.py --phase baseline --split A --model "<%= model %>" --reward-eval-model "<%= reward_model %>" --bandit-type adversarial --eta <%= eta %> --max-turns <%= max_turns %> --train-ratio <%= train_ratio %> --test-ratio <%= test_ratio %> --output-dir results/generalization_agent_pair --strategy-cache-dir cache/strategy_embeddings_v3_slim <%= push_db_flag %> <%= suffix_flag %>
+
+        # Pane 2: Train + Test (frozen policy on test agent pairs)
+        - both: uv run python run_agent_pair_generalization.py --phase both --split A --model "<%= model %>" --reward-eval-model "<%= reward_model %>" --bandit-type adversarial --eta <%= eta %> --max-turns <%= max_turns %> --train-ratio <%= train_ratio %> --test-ratio <%= test_ratio %> --output-dir results/generalization_agent_pair --strategy-cache-dir cache/strategy_embeddings_v3_slim <%= push_db_flag %> <%= suffix_flag %>
+        <%- end -%>
