@@ -1,14 +1,15 @@
 """
-Agent Background 链式同义改写脚本
-从 agent_backgrounds 目录读取场景数据，对每个场景中两个 agent 的 background 进行链式同义改写。
-每次改写都基于上一次的结果，形成改写链。
+Agent background chained paraphrasing script.
+Reads scenario data from the `agent_backgrounds` directory and performs
+chained paraphrase rewrites for the two agent backgrounds in each scenario.
+Each rewrite is based on the previous result, forming a paraphrase chain.
 
-运行方式:
-cd /path/to/project && source .venv/bin/activate && unset ALL_PROXY all_proxy && \
+Usage:
+cd <repo_root> && source .venv/bin/activate && unset ALL_PROXY all_proxy && \
     python experiments/dynamic_observation/paraphrase_agent_profiles_chain.py
 
-测试单个场景:
-cd /path/to/project && source .venv/bin/activate && unset ALL_PROXY all_proxy && \
+Test a single scenario:
+cd <repo_root> && source .venv/bin/activate && unset ALL_PROXY all_proxy && \
     python experiments/dynamic_observation/paraphrase_agent_profiles_chain.py --test
 """
 import argparse
@@ -33,37 +34,37 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
-# 添加项目根目录到 path
+# Add the project root to the Python path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 
-# 加载环境变量
+# Load environment variables
 load_dotenv(project_root / ".env")
 
 import litellm
 
-# 导入 cost 计算函数
+# Import the cost calculation function
 from experiments.dynamic_observation.calculate_cost import calculate_cost_async
 
 console = Console()
 
-# 用于存储所有 LLM 调用的 generation ID
+# Store generation IDs for all LLM calls
 generation_ids: list[str] = []
 generation_ids_lock = asyncio.Lock()
 
-# ========== 配置区域 ==========
-MODEL_NAME = "openrouter/openai/gpt-5"  # 使用的模型
-TEMPERATURE = 1.2  # 调高温度以增加多样性
-MAX_TOKENS = 4096  # 最大输出 token 限制
-NUM_CHAIN_STEPS = 50  # 链式改写的步数
-INPUT_DIR = Path("experiments/dynamic_observation/agent_backgrounds/hard")  # 输入目录
+# ========== Configuration ==========
+MODEL_NAME = "openrouter/openai/gpt-5"  # Model to use
+TEMPERATURE = 1.2  # Higher temperature for more diversity
+MAX_TOKENS = 4096  # Maximum output token limit
+NUM_CHAIN_STEPS = 50  # Number of chained rewrite steps
+INPUT_DIR = Path("experiments/dynamic_observation/agent_backgrounds/hard")  # Input directory
 OUTPUT_DIR = Path(f"experiments/dynamic_observation/chained_paraphrased_backgrounds/{MODEL_NAME}/t{TEMPERATURE}")
-MAX_CONCURRENCY = 20  # 最大并发请求数（每个场景之间的并发）
-MAX_SCENARIOS = None  # 限制处理的场景数量（None 表示处理全部）
-MAX_RETRIES = 5  # 最大重试次数
-RETRY_BASE_DELAY = 2.0  # 重试基础延迟（秒）
-RETRY_STATUS_CODES = {429, 500, 502, 503, 504}  # 需要重试的 HTTP 状态码
+MAX_CONCURRENCY = 20  # Maximum number of concurrent requests across scenarios
+MAX_SCENARIOS = None  # Limit the number of scenarios to process (None = all)
+MAX_RETRIES = 5  # Maximum retry count
+RETRY_BASE_DELAY = 2.0  # Base retry delay in seconds
+RETRY_STATUS_CODES = {429, 500, 502, 503, 504}  # HTTP status codes eligible for retry
 # ==============================
 
 OPT: str = "direct"  # chain | direct (overridden by CLI)
@@ -252,11 +253,175 @@ Original text:
 
 Paraphrased Fusion-Strategic version:"""
 
+SOCIAL_STRATEGY_PARAPHRASE_PROMPT = """You are an expert in social psychology and negotiation theory. Your task is to generate semantically equivalent paraphrases of social strategies.
+
+Original Strategy: {strategy_name}: {strategy_description}
+Theoretical Basis: {theory}
+
+Instructions:
+1. Generate {n} paraphrased versions of this strategy.
+2. Each paraphrase must:
+- Preserve the core behavioral intent and theoretical grounding.
+- Use different wording, sentence structures, and examples.
+- Be directly usable as an agent prompt.
+3. Vary the linguistic style: some formal, some conversational.
+4. Do NOT change the underlying negotiation tactic.
+5. Start with "In your response, "
+
+Output Format:
+{{
+  "original_id": "{strategy_id}",
+  "paraphrases": [
+    {{"id": "{strategy_id}_v1", "description": "..."}},
+    {{"id": "{strategy_id}_v2", "description": "..."}}
+  ]
+}}"""
+
+
+def build_social_strategy_paraphrase_prompt(
+    strategy_id: str,
+    strategy_name: str,
+    strategy_description: str,
+    theory: str,
+    n: int,
+) -> str:
+    """Build the LLM prompt for generating strategy paraphrases."""
+    if n <= 0:
+        raise ValueError("n must be a positive integer")
+    return SOCIAL_STRATEGY_PARAPHRASE_PROMPT.format(
+        strategy_id=strategy_id,
+        strategy_name=strategy_name,
+        strategy_description=strategy_description,
+        theory=theory,
+        n=n,
+    )
+
+
+def extract_json_object(text: str) -> dict[str, Any]:
+    """Extract and parse a JSON object from raw LLM output."""
+    cleaned = text.strip()
+
+    if cleaned.startswith("```"):
+        lines = cleaned.splitlines()
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].startswith("```"):
+            lines = lines[:-1]
+        cleaned = "\n".join(lines).strip()
+
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        start = cleaned.find("{")
+        end = cleaned.rfind("}")
+        if start == -1 or end == -1 or start >= end:
+            raise
+        return json.loads(cleaned[start : end + 1])
+
+
+def validate_social_strategy_paraphrases(
+    payload: dict[str, Any],
+    *,
+    strategy_id: str,
+    expected_count: int,
+) -> dict[str, Any]:
+    """Validate the structure returned by the strategy paraphrase prompt."""
+    if payload.get("original_id") != strategy_id:
+        raise ValueError(
+            f"Expected original_id={strategy_id}, got {payload.get('original_id')}"
+        )
+
+    paraphrases = payload.get("paraphrases")
+    if not isinstance(paraphrases, list):
+        raise ValueError("`paraphrases` must be a list")
+    if len(paraphrases) != expected_count:
+        raise ValueError(
+            f"Expected {expected_count} paraphrases, got {len(paraphrases)}"
+        )
+
+    for idx, item in enumerate(paraphrases, start=1):
+        if not isinstance(item, dict):
+            raise ValueError(f"Paraphrase #{idx} must be an object")
+        paraphrase_id = item.get("id")
+        description = item.get("description")
+        expected_id = f"{strategy_id}_v{idx}"
+        if paraphrase_id != expected_id:
+            raise ValueError(
+                f"Expected paraphrase id {expected_id}, got {paraphrase_id}"
+            )
+        if not isinstance(description, str) or not description.strip():
+            raise ValueError(f"Paraphrase #{idx} must contain a non-empty description")
+
+    return payload
+
+
+async def generate_social_strategy_paraphrases(
+    strategy_id: str,
+    strategy_name: str,
+    strategy_description: str,
+    theory: str,
+    n: int,
+) -> dict[str, Any]:
+    """Generate JSON-formatted paraphrases for a social strategy."""
+    global generation_ids
+    prompt_content = build_social_strategy_paraphrase_prompt(
+        strategy_id=strategy_id,
+        strategy_name=strategy_name,
+        strategy_description=strategy_description,
+        theory=theory,
+        n=n,
+    )
+    last_error = None
+
+    for attempt in range(MAX_RETRIES):
+        try:
+            response = await litellm.acompletion(
+                model=MODEL_NAME,
+                messages=[{"role": "user", "content": prompt_content}],
+                temperature=TEMPERATURE,
+                max_tokens=MAX_TOKENS,
+            )
+
+            gen_id = getattr(response, "id", None)
+            if gen_id:
+                async with generation_ids_lock:
+                    generation_ids.append(gen_id)
+
+            result = response.choices[0].message.content
+            if result is None:
+                raise ValueError(
+                    f"LLM returned None for strategy paraphrase {strategy_id}"
+                )
+
+            payload = extract_json_object(result)
+            return validate_social_strategy_paraphrases(
+                payload, strategy_id=strategy_id, expected_count=n
+            )
+        except Exception as e:
+            last_error = e
+            error_str = str(e)
+            should_retry = any(str(code) in error_str for code in RETRY_STATUS_CODES)
+            if not should_retry:
+                raise
+
+            delay = RETRY_BASE_DELAY * (2**attempt)
+            logger.warning(
+                f"Strategy paraphrase attempt {attempt + 1}/{MAX_RETRIES} failed for "
+                f"{strategy_id}: {error_str[:100]}... Retrying in {delay:.1f}s"
+            )
+            await asyncio.sleep(delay)
+
+    raise RuntimeError(
+        f"Failed to generate strategy paraphrases for {strategy_id} after "
+        f"{MAX_RETRIES} retries. Last error: {last_error}"
+    )
+
 def contains_non_english(text: str, threshold: float = 0.02) -> tuple[bool, float, str]:
     """
-    检查文本是否包含大量非英语字符或乱码模式。
+    Check whether the text contains a large amount of non-English characters
+    or garbled patterns.
 
-    逻辑参考 experiments/dynamic_observation/check_embeddings_quality.py
+    Logic adapted from `experiments/dynamic_observation/check_embeddings_quality.py`.
 
     Returns:
         (is_problematic, non_ascii_ratio, reason)
@@ -266,10 +431,10 @@ def contains_non_english(text: str, threshold: float = 0.02) -> tuple[bool, floa
     if not text:
         return False, 0.0, ""
 
-    # 允许的特殊字符（常见英文标点和符号）
+    # Allowed special characters (common English punctuation and symbols)
     allowed_special = set("''\"\"—–…•·°±×÷©®™€£¥¢")
 
-    # 统计非 ASCII 字符
+    # Count non-ASCII characters
     non_ascii_chars: list[str] = []
     for char in text:
         if ord(char) > 127 and char not in allowed_special:
@@ -277,22 +442,22 @@ def contains_non_english(text: str, threshold: float = 0.02) -> tuple[bool, floa
 
     ratio = len(non_ascii_chars) / len(text) if text else 0.0
 
-    # 检查1: 非 ASCII 比例超过阈值
+    # Check 1: non-ASCII ratio exceeds the threshold
     if ratio > threshold:
         sample = "".join(set(non_ascii_chars[:30]))
         return True, ratio, f"High non-ASCII ratio: {sample}"
 
-    # 检查2: 检测多语言混合（乱码的典型特征）
-    has_cyrillic = bool(re.search(r"[\u0400-\u04FF]", text))  # 俄语
-    has_arabic = bool(re.search(r"[\u0600-\u06FF]", text))  # 阿拉伯语
-    has_cjk = bool(re.search(r"[\u4E00-\u9FFF]", text))  # 中日韩
-    has_korean = bool(re.search(r"[\uAC00-\uD7AF]", text))  # 韩语
-    has_hebrew = bool(re.search(r"[\u0590-\u05FF]", text))  # 希伯来语
-    has_thai = bool(re.search(r"[\u0E00-\u0E7F]", text))  # 泰语
-    has_devanagari = bool(re.search(r"[\u0900-\u097F]", text))  # 天城文(印地语)
-    has_armenian = bool(re.search(r"[\u0530-\u058F]", text))  # 亚美尼亚语
-    has_georgian = bool(re.search(r"[\u10A0-\u10FF]", text))  # 格鲁吉亚语
-    has_greek = bool(re.search(r"[\u0370-\u03FF]", text))  # 希腊语
+    # Check 2: detect mixed writing systems (a common sign of garbled text)
+    has_cyrillic = bool(re.search(r"[\u0400-\u04FF]", text))  # Cyrillic
+    has_arabic = bool(re.search(r"[\u0600-\u06FF]", text))  # Arabic
+    has_cjk = bool(re.search(r"[\u4E00-\u9FFF]", text))  # CJK
+    has_korean = bool(re.search(r"[\uAC00-\uD7AF]", text))  # Korean
+    has_hebrew = bool(re.search(r"[\u0590-\u05FF]", text))  # Hebrew
+    has_thai = bool(re.search(r"[\u0E00-\u0E7F]", text))  # Thai
+    has_devanagari = bool(re.search(r"[\u0900-\u097F]", text))  # Devanagari (e.g. Hindi)
+    has_armenian = bool(re.search(r"[\u0530-\u058F]", text))  # Armenian
+    has_georgian = bool(re.search(r"[\u10A0-\u10FF]", text))  # Georgian
+    has_greek = bool(re.search(r"[\u0370-\u03FF]", text))  # Greek
 
     language_count = sum(
         [
@@ -312,7 +477,7 @@ def contains_non_english(text: str, threshold: float = 0.02) -> tuple[bool, floa
     if language_count >= 2:
         return True, ratio, f"Multi-language mixing detected ({language_count} scripts)"
 
-    # 检查3: 检测代码片段模式（乱码中常见）
+    # Check 3: detect code-like patterns that often appear in corrupt output
     code_patterns = [
         r"\)\s*\{",  # ){
         r"\}\s*;",  # };
@@ -334,12 +499,12 @@ def contains_non_english(text: str, threshold: float = 0.02) -> tuple[bool, floa
     if code_matches >= 3:
         return True, ratio, f"Code-like patterns detected ({code_matches} patterns)"
 
-    # 检查4: 过多的特殊符号（乱码特征）
+    # Check 4: too many special symbols, which is another sign of garbling
     special_chars = re.findall(r"[█▓▒░■□●○◆◇★☆►◄▲△▼▽⬚═║╔╗╚╝╠╣╬┌┐└┘├┤┬┴┼─│]", text)
     if len(special_chars) > 5:
         return True, ratio, f"Excessive special symbols ({len(special_chars)} found)"
 
-    # 检查5: 连续的非英语字符序列（正常英文不应该有）
+    # Check 5: repeated non-ASCII sequences that should not appear in normal English
     consecutive_non_ascii = re.findall(r"[^\x00-\x7F]{3,}", text)
     if len(consecutive_non_ascii) > 3:
         return True, ratio, f"Multiple non-ASCII sequences ({len(consecutive_non_ascii)} found)"
@@ -350,7 +515,8 @@ def contains_non_english(text: str, threshold: float = 0.02) -> tuple[bool, floa
 
 def get_valid_chain_quality(chain: list[str], threshold: float) -> list[str]:
     """
-    获取有效的改写链：过滤空值，并在发现质量不合格（非英文/乱码）时停止。
+    Get the valid rewrite chain: filter out empty values and stop once a
+    low-quality item (non-English / garbled text) is encountered.
     """
     valid: list[str] = []
     for item in chain:
@@ -365,17 +531,17 @@ def get_valid_chain_quality(chain: list[str], threshold: float) -> list[str]:
 
 def load_scenario_data(scenario_dir: Path) -> tuple[dict[str, Any], dict[str, Any], str, str] | None:
     """
-    从场景目录加载两个 agent 的数据文件
+    Load the two agent data files from a scenario directory.
 
     Returns:
-        (agent0_data, agent1_data, agent0_filename, agent1_filename) 或 None
-        两个文件的 background 相同，只有 goal 不同
+        `(agent0_data, agent1_data, agent0_filename, agent1_filename)` or
+        `None`. The two files share the same backgrounds and only differ in goal.
     """
     json_files = sorted(scenario_dir.glob("*.json"))
     if len(json_files) < 2:
         return None
 
-    # 按文件名排序，0_xxx.json 在前，1_xxx.json 在后
+    # Sort by filename so that `0_xxx.json` comes before `1_xxx.json`
     agent0_file = json_files[0]
     agent1_file = json_files[1]
 
@@ -417,7 +583,8 @@ async def rewrite_single_with_retry(
     fusion_modes: list[dict[str, str]] | None = None,
 ) -> str:
     """
-    使用 LLM 对单个文本进行策略同义改写，带重试机制（无信号量，由调用者控制并发）
+    Use the LLM to produce a strategic paraphrase for a single text, with
+    retries. No semaphore is used here; concurrency is controlled by the caller.
 
     Either (selected_mode_name, selected_mode_definition) OR fusion_modes must be provided.
     """
@@ -459,7 +626,7 @@ async def rewrite_single_with_retry(
                 max_tokens=MAX_TOKENS,
             )
 
-            # 记录 generation ID 用于后续 cost 计算
+            # Record the generation ID for later cost calculation
             gen_id = getattr(response, "id", None)
             if gen_id:
                 async with generation_ids_lock:
@@ -472,7 +639,7 @@ async def rewrite_single_with_retry(
         except Exception as e:
             last_error = e
             error_str = str(e)
-            # 检查是否是可重试的错误
+            # Check whether this is a retryable error
             should_retry = any(str(code) in error_str for code in RETRY_STATUS_CODES)
             if not should_retry:
                 raise
@@ -495,7 +662,8 @@ async def rewrite_single_with_quality(
     quality_max_retries: int,
 ) -> str:
     """
-    生成一次策略改写，并做文本质量检查；不合格则在质量层面重试。
+    Generate one strategic rewrite and run a text quality check; if the output
+    is unacceptable, retry at the quality-control layer.
 
     Either (selected_mode_name, selected_mode_definition) OR fusion_modes must be provided.
     """
@@ -534,37 +702,37 @@ async def rewrite_chain_for_text(
     existing_chain: list[str] | None = None,
 ) -> list[str]:
     """
-    对单个文本进行链式改写。
-    每次改写都基于上一次的结果，形成一条改写链。
-    支持从已有链继续生成。
+    Perform chained rewriting for a single text.
+    Each rewrite is based on the previous result, forming a rewrite chain.
+    Supports resuming from an existing chain.
 
     Args:
-        original_text: 原始文本
-        num_steps: 链式改写的步数
-        progress: Rich Progress 对象用于更新进度
-        task_id: 进度条任务 ID
-        existing_chain: 已存在的改写链（用于增量生成）
+        original_text: Original input text
+        num_steps: Number of chained rewrite steps
+        progress: Rich `Progress` instance used to update progress
+        task_id: Progress task ID
+        existing_chain: Existing rewrite chain used for incremental generation
 
     Returns:
-        改写链列表（不包含原始文本，只包含改写结果）
+        A list containing only rewrite results, not the original text
     """
-    # 从已有链开始（如果有的话）
+    # Start from the existing chain if one is provided
     if existing_chain:
         chain = get_valid_chain_quality(existing_chain, threshold=QUALITY_THRESHOLD)
     else:
         chain = []
 
-    # 确定当前文本（从链的最后一个开始，或从原始文本开始）
+    # Determine the current text: the last chain item or the original text
     current_text = chain[-1] if chain else original_text
 
-    # 已有的步数直接更新进度条
+    # Advance the progress bar for already completed steps
     existing_steps = len(chain)
     if existing_steps > 0:
         progress.update(task_id, advance=existing_steps)
 
-    # 继续生成剩余的步数
+    # Generate the remaining steps
     for step in range(existing_steps, num_steps):
-        # 基于上一次的结果进行改写
+        # Rewrite based on the previous result
         mode = STRATEGIC_MODES[step % len(STRATEGIC_MODES)]
         rewritten = await rewrite_single_with_quality(
             current_text,
@@ -575,7 +743,7 @@ async def rewrite_chain_for_text(
         )
         chain.append(rewritten)
         current_text = rewritten
-        # 更新进度条
+        # Update the progress bar
         progress.update(task_id, advance=1)
 
     return chain
@@ -589,8 +757,9 @@ async def rewrite_direct_for_text(
     existing_versions: list[str] | None = None,
 ) -> list[str]:
     """
-    直接进行同义改写：对同一 original_text 生成每个策略模式对应的一个版本（不链式依赖）。
-    支持从已有结果继续生成（按顺序补齐缺失项）。
+    Perform direct paraphrasing: generate one version per strategic mode from
+    the same `original_text`, without chained dependence.
+    Supports resuming from existing results by filling missing items in order.
     """
     if not STRATEGIC_MODES:
         raise ValueError("STRATEGIC_MODES is empty; define at least one strategic mode.")
@@ -668,8 +837,8 @@ def save_scenario_result(
     p2_fusion_data: list[list[dict[str, str]]] | None = None,
 ) -> None:
     """
-    保存场景结果到两个 JSON 文件（对应两个 agent 视角）
-    两个文件共享相同的 paraphrased backgrounds，只有 goal 不同
+    Save the scenario result into two JSON files, one for each agent view.
+    The two files share the same paraphrased backgrounds and only differ in goal.
     """
     scenario_output_dir = output_dir / scenario_pk
     scenario_output_dir.mkdir(parents=True, exist_ok=True)
@@ -742,7 +911,7 @@ def save_scenario_result(
         "p2_strategic_versions": p2_strategic_versions,
     }
 
-    # 保存 agent0 视角的文件（p1_goal 已知，p2_goal=Unknown）
+    # Save the file for the agent0 view (known p1_goal, unknown p2_goal)
     result0 = {
         "original": agent0_data,
         "paraphrased": paraphrased,
@@ -753,7 +922,7 @@ def save_scenario_result(
         json.dump(result0, f, ensure_ascii=False, indent=2)
     logger.debug(f"Saved result to {output_file0}")
 
-    # 保存 agent1 视角的文件（p1_goal=Unknown，p2_goal 已知）
+    # Save the file for the agent1 view (unknown p1_goal, known p2_goal)
     result1 = {
         "original": agent1_data,
         "paraphrased": paraphrased,
@@ -767,16 +936,17 @@ def save_scenario_result(
 
 def load_existing_scenario_result(scenario_pk: str, output_dir: Path) -> dict[str, Any] | None:
     """
-    加载已存在的场景结果文件（读取任一 agent 文件即可，因为 paraphrased 相同）
+    Load an existing scenario result file.
+    Reading either agent file is sufficient because `paraphrased` is shared.
 
     Returns:
-        已存在的结果数据，或 None（如果不存在或无效）
+        Existing result data, or `None` if it does not exist or is invalid
     """
     scenario_output_dir = output_dir / scenario_pk
     if not scenario_output_dir.exists():
         return None
 
-    # 查找任意一个 json 文件
+    # Find any JSON file in the scenario output directory
     json_files = list(scenario_output_dir.glob("*.json"))
     if not json_files:
         return None
@@ -784,7 +954,7 @@ def load_existing_scenario_result(scenario_pk: str, output_dir: Path) -> dict[st
     try:
         with open(json_files[0], "r", encoding="utf-8") as f:
             data = json.load(f)
-        # 检查必要字段是否存在
+        # Check whether the required fields exist
         if (
             "original" in data
             and "paraphrased" in data
@@ -800,33 +970,33 @@ def load_existing_scenario_result(scenario_pk: str, output_dir: Path) -> dict[st
 
 def get_valid_chain(chain: list[str]) -> list[str]:
     """
-    获取有效的改写链（过滤掉空值和无效值）
+    Get a valid rewrite chain by filtering out empty or invalid items.
 
     Returns:
-        有效的改写链列表
+        A valid rewrite chain list
     """
     valid_chain = []
     for item in chain:
         if item and isinstance(item, str) and item.strip():
             valid_chain.append(item)
         else:
-            # 遇到无效值就停止，因为后续的改写都基于前面的结果
+            # Stop at the first invalid item because later rewrites depend on earlier ones
             break
     return valid_chain
 
 
 def is_scenario_complete(scenario_pk: str, output_dir: Path) -> bool:
-    """检查场景是否已完成（两个 agent 文件都存在且改写数量足够）"""
+    """Check whether a scenario is complete: both agent files exist and contain enough rewrites."""
     scenario_output_dir = output_dir / scenario_pk
     if not scenario_output_dir.exists():
         return False
 
-    # 检查是否有两个 json 文件
+    # Check whether two JSON files exist
     json_files = list(scenario_output_dir.glob("*.json"))
     if len(json_files) < 2:
         return False
 
-    # 检查改写数量
+    # Check the number of rewrites
     data = load_existing_scenario_result(scenario_pk, output_dir)
     if data is None:
         return False
@@ -845,38 +1015,39 @@ async def process_single_scenario(
     overall_task_id: int,
 ) -> dict[str, Any]:
     """
-    处理单个场景（获取信号量后执行链式改写）
-    支持增量生成：检测已有的条数，从断点继续生成。
-    为两个 agent 分别生成文件（共享相同的 paraphrased backgrounds，只有 goal 不同）
+    Process a single scenario after acquiring the semaphore.
+    Supports incremental generation by resuming from the existing count.
+    Generates separate files for the two agents while sharing the same
+    paraphrased backgrounds and differing only in goal.
 
     Args:
-        scenario_dir: 场景目录路径
-        semaphore: 控制并发的信号量
-        progress: Rich Progress 对象
-        overall_task_id: 总进度条任务 ID
+        scenario_dir: Scenario directory path
+        semaphore: Semaphore used to control concurrency
+        progress: Rich `Progress` instance
+        overall_task_id: Overall progress task ID
 
     Returns:
-        改写结果（确保完整，不会返回 None）
+        Rewrite result data; guaranteed to be complete and non-`None`
 
     Raises:
-        ValueError: 如果场景目录无效
-        RuntimeError: 如果生成失败
+        ValueError: If the scenario directory is invalid
+        RuntimeError: If generation fails
     """
     scenario_pk = scenario_dir.name
 
     async with semaphore:
-        # 加载两个 agent 的场景数据
+        # Load scenario data for both agents
         loaded = load_scenario_data(scenario_dir)
         if loaded is None:
             raise ValueError(f"No valid JSON files in {scenario_dir}")
 
         agent0_data, agent1_data, agent0_filename, agent1_filename = loaded
 
-        # 从 agent0 获取 background（两个文件的 background 相同）
+        # Use agent0 to obtain the backgrounds; both files share the same backgrounds
         p1_bg = agent0_data["p1_background"]
         p2_bg = agent0_data["p2_background"]
 
-        # 加载已有的结果（如果存在）
+        # Load existing results if present
         existing_result = load_existing_scenario_result(scenario_pk, OUTPUT_DIR)
         existing_p1_chain: list[str] = []
         existing_p2_chain: list[str] = []
@@ -893,13 +1064,13 @@ async def process_single_scenario(
             )
 
         required = NUM_CHAIN_STEPS if OPT == "chain" else (DIRECT_VERSIONS or len(STRATEGIC_MODES))
-        # 创建子任务进度条（p1 和 p2 各 required 步）
+        # Create a child progress task (`required` steps for each of p1 and p2)
         chain_task_id = progress.add_task(
             f"[blue]{scenario_pk[:8]}...",
             total=required * 2,
         )
 
-        # 初始化 fusion_data（所有模式都设为 None，fusion 模式下会被赋值）
+        # Initialize `fusion_data`; it stays `None` unless fusion mode is used
         p1_fusion_data: list[list[dict[str, str]]] | None = None
         p2_fusion_data: list[list[dict[str, str]]] | None = None
 
@@ -910,14 +1081,14 @@ async def process_single_scenario(
                 rewrite_fusion_for_text(p2_bg, progress, chain_task_id, required, existing_p2_chain),
             )
         elif OPT == "direct":
-            # 直接改写：对原始文本分别生成每个策略模式对应的版本（不链式依赖）
+            # Direct rewriting: generate one version per mode from the original text
             p1_chain, p2_chain = await asyncio.gather(
                 rewrite_direct_for_text(p1_bg, progress, chain_task_id, required, existing_p1_chain),
                 rewrite_direct_for_text(p2_bg, progress, chain_task_id, required, existing_p2_chain),
             )
         else:
-            # 链式改写：每步基于上一步结果继续改写（两个链之间是独立的）
-            # 传入已有的链，支持增量生成
+            # Chained rewriting: each step depends on the previous one, while the
+            # two chains remain independent; pass existing chains to support resuming
             p1_chain, p2_chain = await asyncio.gather(
                 rewrite_chain_for_text(
                     p1_bg, NUM_CHAIN_STEPS, progress, chain_task_id, existing_p1_chain
@@ -927,14 +1098,14 @@ async def process_single_scenario(
                 ),
             )
 
-        # 验证结果完整性
+        # Validate result completeness
         if len(p1_chain) != required or len(p2_chain) != required:
             raise RuntimeError(
                 f"Incomplete result for {scenario_pk}: "
                 f"p1={len(p1_chain)}/{required}, p2={len(p2_chain)}/{required}"
             )
 
-        # 保存两个 agent 的结果文件
+        # Save the result files for both agents
         save_scenario_result(
             agent0_data=agent0_data,
             agent1_data=agent1_data,
@@ -949,15 +1120,15 @@ async def process_single_scenario(
             p2_fusion_data=p2_fusion_data,
         )
 
-        # 移除子任务进度条
+        # Remove the child progress task
         progress.remove_task(chain_task_id)
 
-        # 更新总进度
+        # Update overall progress
         progress.update(overall_task_id, advance=1)
 
         logger.info(f"Completed scenario {scenario_pk}")
 
-        # 返回结果（用于统计）
+        # Return result data for summary statistics
         return {
             "scenario_pk": scenario_pk,
             "p1_chain_length": len(p1_chain),
@@ -966,7 +1137,7 @@ async def process_single_scenario(
 
 
 async def main() -> None:
-    """主函数"""
+    """Main entry point."""
     console.print("[bold green]Starting Agent Background Chain Paraphrase Script[/]")
     if OPT == "fusion":
         console.print(
@@ -986,17 +1157,17 @@ async def main() -> None:
         )
     console.print(f"[cyan]Input: {INPUT_DIR}, Output: {OUTPUT_DIR}[/]")
 
-    # 检查 API key
+    # Check the API key
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
         raise ValueError("OPENROUTER_API_KEY not found in .env file")
 
-    # 设置 litellm
+    # Configure LiteLLM
     litellm.api_key = api_key
-    # 启用 HTTP 客户端连接池复用，减少 SSL 连接开销
+    # Reuse the HTTP client connection pool to reduce SSL connection overhead
     litellm.enable_shared_async_client = True
 
-    # 获取所有场景目录
+    # Collect all scenario directories
     console.print("[cyan]Loading scenario directories...[/]")
     # Use provided INPUT_DIR (which might be updated by args)
     if not INPUT_DIR.exists():
@@ -1005,15 +1176,15 @@ async def main() -> None:
     all_scenario_dirs = [d for d in INPUT_DIR.iterdir() if d.is_dir()]
     console.print(f"[green]Found {len(all_scenario_dirs)} scenarios[/]")
 
-    # 限制处理数量（如果设置了）
+    # Limit the number of scenarios if requested
     if MAX_SCENARIOS is not None:
         all_scenario_dirs = all_scenario_dirs[:MAX_SCENARIOS]
         console.print(f"[yellow]Limited to first {MAX_SCENARIOS} scenarios[/]")
 
-    # 创建信号量控制并发（每个场景之间的并发）
+    # Create a semaphore to control concurrency across scenarios
     semaphore = asyncio.Semaphore(MAX_CONCURRENCY)
 
-    # 检查已生成的文件，筛选出需要处理的场景（包括未完成的）
+    # Inspect generated files and select scenarios that still need processing
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     scenarios_to_process = []
     complete_count = 0
@@ -1024,7 +1195,7 @@ async def main() -> None:
             complete_count += 1
         else:
             scenarios_to_process.append(scenario_dir)
-            # 检查是否是部分完成的
+            # Check whether the scenario is partially completed
             if load_existing_scenario_result(scenario_dir.name, OUTPUT_DIR) is not None:
                 incomplete_count += 1
 
@@ -1041,7 +1212,7 @@ async def main() -> None:
     console.print(f"[cyan]Processing {len(scenarios_to_process)} remaining scenarios...[/]")
     console.print(f"[cyan]Max concurrency: {MAX_CONCURRENCY} scenarios in parallel[/]")
 
-    # 异步并发处理所有场景
+    # Process all scenarios asynchronously and concurrently
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -1054,16 +1225,16 @@ async def main() -> None:
             "[green]Overall progress", total=len(scenarios_to_process)
         )
 
-        # 创建所有任务并并发执行
+        # Create all tasks and execute them concurrently
         tasks = [
             process_single_scenario(scenario_dir, semaphore, progress, overall_task)
             for scenario_dir in scenarios_to_process
         ]
 
-        # 使用 gather 并发执行，return_exceptions=True 避免单个失败导致全部失败
+        # Use `gather`; `return_exceptions=True` prevents one failure from aborting all tasks
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        # 统计结果
+        # Summarize results
         success_count = sum(1 for r in results if r is not None and not isinstance(r, Exception))
         error_count = sum(1 for r in results if isinstance(r, Exception))
 
@@ -1078,21 +1249,21 @@ async def main() -> None:
     if error_count > 0:
         console.print("[bold red]Some scenarios failed. Check logs for details.[/]")
 
-    # 计算并保存 cost 统计
+    # Compute and save cost statistics
     if generation_ids:
         console.print(f"\n[cyan]Calculating cost for {len(generation_ids)} LLM calls...[/]")
 
-        # 保存 generation IDs 到日志文件
+        # Save generation IDs to a log file
         log_file = OUTPUT_DIR / "generation_ids.jsonl"
         with open(log_file, "w", encoding="utf-8") as f:
             for gen_id in generation_ids:
                 f.write(json.dumps({"id": gen_id}) + "\n")
         logger.info(f"Saved {len(generation_ids)} generation IDs to {log_file}")
 
-        # 计算 cost
+        # Compute cost
         cost_result = await calculate_cost_async(log_file)
 
-        # 添加额外的统计信息
+        # Add extra summary fields
         cost_result["generation_count"] = len(generation_ids)
         cost_result["scenarios_processed"] = success_count
         cost_result["model"] = MODEL_NAME
@@ -1106,7 +1277,7 @@ async def main() -> None:
         cost_result["quality_retries"] = QUALITY_MAX_RETRIES
         cost_result["calculated_at"] = datetime.now().isoformat()
 
-        # 保存 cost 统计到 JSON 文件
+        # Save cost statistics to a JSON file
         cost_file = OUTPUT_DIR / "cost_statistics.json"
         with open(cost_file, "w", encoding="utf-8") as f:
             json.dump(cost_result, f, ensure_ascii=False, indent=2)
@@ -1118,75 +1289,75 @@ async def main() -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    """解析命令行参数"""
+    """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
-        description="Agent Background 链式同义改写脚本",
+        description="Agent background chained paraphrasing script",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
         "--opt",
         choices=["chain", "direct", "fusion"],
         default="direct",
-        help="改写方式：chain=链式改写；direct=直接按策略模式改写；fusion=随机组合1-3个策略",
+        help="Rewrite mode: chain=chained rewriting; direct=one rewrite per strategic mode; fusion=randomly combine 1-3 strategies",
     )
     parser.add_argument(
         "--direct-versions",
         type=int,
         default=None,
-        help="direct 模式生成版本数（默认=策略模式数量；大于模式数量时会循环使用模式）",
+        help="Number of versions to generate in direct mode (default: number of strategic modes; modes are reused cyclically if larger)",
     )
     parser.add_argument(
         "--max-tokens",
         type=int,
         default=MAX_TOKENS,
-        help="LLM 输出最大 token 限制（默认 6199）",
+        help="Maximum output token limit for the LLM (default: 6199)",
     )
     parser.add_argument(
         "--quality-threshold",
         type=float,
         default=QUALITY_THRESHOLD,
-        help="文本质量检查：非 ASCII 字符占比阈值（默认 0.05，超过则视为问题文本）",
+        help="Text quality check: non-ASCII character ratio threshold (default: 0.05; values above this are treated as problematic)",
     )
     parser.add_argument(
         "--quality-retries",
         type=int,
         default=QUALITY_MAX_RETRIES,
-        help="文本质量检查：每条文本最多重试次数（默认 5）",
+        help="Text quality check: maximum retries per text (default: 5)",
     )
     parser.add_argument(
         "--test",
         action="store_true",
-        help="测试模式：只处理一个场景",
+        help="Test mode: process only one scenario",
     )
     parser.add_argument(
         "--max-scenarios",
         type=int,
         default=None,
-        help="限制处理的场景数量",
+        help="Limit the number of scenarios to process",
     )
     parser.add_argument(
         "--chain-steps",
         type=int,
         default=None,
-        help="链式改写步数（覆盖默认值）",
+        help="Number of chained rewrite steps (overrides the default)",
     )
     parser.add_argument(
         "--input-dir",
         type=Path,
         default=None,
-        help="覆盖输入目录",
+        help="Override the input directory",
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
         default=None,
-        help="覆盖输出目录",
+        help="Override the output directory",
     )
     return parser.parse_args()
 
 
 if __name__ == "__main__":
-    # 解析命令行参数
+    # Parse command-line arguments
     args = parse_args()
     # import litellm
     # litellm._turn_on_debug()
@@ -1206,7 +1377,7 @@ if __name__ == "__main__":
     if QUALITY_MAX_RETRIES <= 0:
         raise ValueError("--quality-retries must be a positive integer")
 
-    # 根据参数覆盖配置
+    # Override configuration based on CLI arguments
     if args.test:
         MAX_SCENARIOS = 1
         console.print("[bold yellow]TEST MODE: Processing only 1 scenario[/]")
@@ -1216,11 +1387,11 @@ if __name__ == "__main__":
     if args.chain_steps is not None:
         NUM_CHAIN_STEPS = args.chain_steps
 
-    # 更新输出目录（根据 opt）
+    # Update the input directory if provided
     if args.input_dir:
         INPUT_DIR = args.input_dir
 
-    # 更新输出目录（根据 opt）
+    # Update the output directory based on `opt`
     if args.output_dir:
         OUTPUT_DIR = args.output_dir
     elif OPT == "direct":
@@ -1237,7 +1408,7 @@ if __name__ == "__main__":
             f"experiments/dynamic_observation/chained_paraphrased_backgrounds/{MODEL_NAME}/t{TEMPERATURE}"
         )
 
-    # 配置 logger
+    # Configure the logger
     logger.remove()
     logger.add(
         sys.stderr,
@@ -1246,19 +1417,19 @@ if __name__ == "__main__":
         level="INFO",
     )
 
-    # 使用自定义 wrapper 来避免 "Event loop is closed" 错误
+    # Use a custom wrapper to avoid "Event loop is closed" errors
     async def main_with_cleanup() -> None:
         try:
             await main()
         finally:
-            # 显式关闭 LiteLLM 的异步 HTTP 客户端
+            # Explicitly close LiteLLM's async HTTP clients
             console.print("\n[dim]Cleaning up LiteLLM async clients...[/]")
             try:
                 await litellm.close_litellm_async_clients()
                 console.print("[dim]✓ LiteLLM async clients closed successfully[/]")
             except Exception as e:
                 console.print(f"[yellow]Warning: Error closing LiteLLM clients: {e}[/]")
-            # 额外等待一小段时间确保连接完全关闭
+            # Wait a bit longer to ensure all connections are fully closed
             await asyncio.sleep(0.5)
 
     asyncio.run(main_with_cleanup())
