@@ -204,6 +204,19 @@
   </div>
 </section>
 
+<!-- ============== NON-STATIONARITY ============== -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered section-title">Non-Stationary Strategy Reward Drift</h2>
+    <figure class="image mt-3">
+      <img src="static/images/reward_drift.png" alt="Strategy reward drift over dialogue turns">
+    </figure>
+    <p class="has-text-centered is-size-7 has-text-grey mt-2">
+      <strong>Figure&nbsp;4. Strategy Reward Drift Over Dialogue Turns.</strong> Each line represents a different strategy (arm), showing how the average <em>normalized</em> reward varies across turns within episodes. The pronounced drift across turns directly motivates ALSO&rsquo;s adversarial-bandit formulation — no strategy is universally optimal, and the best arm changes with the conversation state.
+    </p>
+  </div>
+</section>
+
 <!-- ============== ABLATION ============== -->
 <section class="section hero is-light">
   <div class="container is-max-desktop">
@@ -253,6 +266,14 @@
       <img src="static/images/cross_model_hm.png" alt="Heterogeneous model pairing heatmap">
     </figure>
     <p class="has-text-centered is-size-7 has-text-grey">ALSO yields consistent gains across all heterogeneous dyads of DeepSeek-V3.2, Qwen-2.5-72B, and GPT-4o-mini, showing a general optimization effect rather than pair-specific tuning.</p>
+
+    <h3 class="title is-5 has-text-centered mt-6">Strategy Selection and Convergence Across Diverse Scenarios</h3>
+    <figure class="image mt-3">
+      <img src="static/images/scenario_strategy.png" alt="Strategy selection trajectories across scenarios">
+    </figure>
+    <p class="has-text-centered is-size-7 has-text-grey">
+      (a&ndash;d) Strategy-selection trajectories for four representative scenarios: the bandit converges to scenario-specific optimal strategies — <em>Face-Saving</em> for relationship-sensitive negotiations, <em>Integrative Negotiation</em> for collaborative problem-solving, <em>Rational Choice</em> for analytical discussions, and <em>Reciprocity Trigger</em> for trust-building. (e) Average final rewards per strategy across all 450 scenarios (900 agent-strategy pairs); all social strategies beat the No-Strategy baseline (red dashed line, 3.79), with <em>Rational Choice</em> and <em>Constructive Controversy</em> the strongest (4.00).
+    </p>
   </div>
 </section>
 
@@ -263,6 +284,15 @@
     <p class="has-text-centered has-text-grey is-size-6">
       Same scenario, two agents. <strong>Vanilla</strong> (no strategy) loops into a deadlock; <strong>ALSO</strong> injects turn-level strategies and reaches agreement.
     </p>
+
+    <figure class="image mt-4">
+      <img src="static/images/case.png" alt="Conflict resolution case study figure">
+    </figure>
+    <p class="has-text-centered is-size-7 has-text-grey">
+      <strong>Figure&nbsp;3. Conflict Resolution.</strong> Comparison of dialogue trajectories at the critical deadlock phase (Turns&nbsp;7&ndash;9), highlighting turn-level strategy switches and their effect on reward and relationship.
+    </p>
+
+    <h3 class="title is-5 has-text-centered mt-6">Interactive Replay</h3>
 
     <div class="case-tabs has-text-centered mt-4">
       <button id="tab-vanilla" class="active" onclick="switchCase('vanilla')">Vanilla (Deadlock)</button>
