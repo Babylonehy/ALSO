@@ -1,0 +1,29 @@
+# Adversarial Bandit Configuration - GPT-4o-mini
+# Reproduces the merged "all" experiment by running:
+# 1. both_hard
+# 2. both_non_hard
+#
+# Usage:
+#   tmuxinator start -p conf/main_experiments/adversarial_v3_4o_mini_all.yml
+#   tmuxinator start -p conf/main_experiments/adversarial_v3_4o_mini_all.yml gpu=0
+#   tmuxinator start -p conf/main_experiments/adversarial_v3_4o_mini_all.yml hard_gpu=0 non_hard_gpu=1
+
+name: adversarial-v3-4o-mini-all-eta<%= (@settings["eta"] || "10").to_s.gsub(".", "_") %>
+root: .
+startup_window: hard
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/workspace/lixiang/sotopia" %>/experiments/also
+  - source <%= @settings["project_root"] || "/workspace/lixiang/sotopia" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+
+windows:
+  - hard:
+      layout: even-horizontal
+      panes:
+        - CUDA_VISIBLE_DEVICES=<%= @settings["hard_gpu"] || @settings["gpu"] || "0" %> uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size 70 --no-mask-unselected-scores --context-embedding --subset hard --model openrouter/openai/gpt-4o-mini --reward-eval-model openrouter/openai/gpt-4o-mini --bandit-type adversarial --optimize both --eta <%= @settings["eta"] || "10" %> --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["strategy_cache_dir"] || "/workspace/lixiang/sotopia/experiments/also/cache/strategy_embeddings_v3_slim" %>
+
+  - non_hard:
+      layout: even-horizontal
+      panes:
+        - CUDA_VISIBLE_DEVICES=<%= @settings["non_hard_gpu"] || @settings["gpu"] || "0" %> uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size 50 --no-mask-unselected-scores --context-embedding --subset non_hard --model openrouter/openai/gpt-4o-mini --reward-eval-model openrouter/openai/gpt-4o-mini --bandit-type adversarial --optimize both --eta <%= @settings["eta"] || "10" %> --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["strategy_cache_dir"] || "/workspace/lixiang/sotopia/experiments/also/cache/strategy_embeddings_v3_slim" %>

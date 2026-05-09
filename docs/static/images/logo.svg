@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>ALSO — Adversarial Online Strategy Optimization</title>
+
+  <defs>
+    <!-- Two-agent gradients -->
+    <linearGradient id="agentBlue" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"  stop-color="#5b8def"/>
+      <stop offset="100%" stop-color="#1d3a8a"/>
+    </linearGradient>
+    <linearGradient id="agentOrange" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%"  stop-color="#ffb35a"/>
+      <stop offset="100%" stop-color="#d96b1a"/>
+    </linearGradient>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#f4f7fb"/>
+      <stop offset="100%" stop-color="#e5ebf5"/>
+    </linearGradient>
+    <!-- Arrow head marker for the online loop -->
+    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5"
+            markerWidth="5" markerHeight="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="#5d6b85"/>
+    </marker>
+  </defs>
+
+  <!-- Soft circular background -->
+  <circle cx="128" cy="128" r="120" fill="url(#bg)" stroke="#cbd5e1" stroke-width="2"/>
+
+  <!-- Online learning loop: dashed arc with arrow (rotates around the A) -->
+  <path d="M 220 128 A 92 92 0 1 1 128 36"
+        fill="none" stroke="#5d6b85" stroke-width="5"
+        stroke-linecap="round" stroke-dasharray="2 11"
+        marker-end="url(#arrow)"/>
+
+  <!-- Strategy arms (bandit) — small chips around the apex -->
+  <g opacity="0.85">
+    <circle cx="92"  cy="62" r="6" fill="#1d3a8a"/>
+    <circle cx="128" cy="50" r="6" fill="#7a4cc4"/>
+    <circle cx="164" cy="62" r="6" fill="#d96b1a"/>
+  </g>
+
+  <!-- The "A": two interlocking speech-bubble legs (two adversarial agents) -->
+  <!-- Left leg = blue agent, shaped as a downward chat bubble -->
+  <path d="M 116 86
+           L 70 196
+           Q 66 206 76 206
+           L 96 206
+           Q 104 206 107 198
+           L 132 138
+           Q 137 126 127 122
+           L 122 120
+           Q 113 116 116 86 Z"
+        fill="url(#agentBlue)"/>
+
+  <!-- Right leg = orange agent (mirror) -->
+  <path d="M 140 86
+           L 186 196
+           Q 190 206 180 206
+           L 160 206
+           Q 152 206 149 198
+           L 124 138
+           Q 119 126 129 122
+           L 134 120
+           Q 143 116 140 86 Z"
+        fill="url(#agentOrange)"/>
+
+  <!-- Crossbar of the A — the "strategy" injected at runtime -->
+  <rect x="92" y="156" width="72" height="12" rx="3" fill="#1f2937"/>
+  <!-- subtle highlight on crossbar -->
+  <rect x="92" y="156" width="72" height="3" rx="1" fill="#ffffff" opacity="0.25"/>
+
+  <!-- Small dialogue dots inside the apex (interaction signal) -->
+  <g fill="#ffffff" opacity="0.95">
+    <circle cx="120" cy="108" r="3"/>
+    <circle cx="128" cy="104" r="3"/>
+    <circle cx="136" cy="108" r="3"/>
+  </g>
+</svg>

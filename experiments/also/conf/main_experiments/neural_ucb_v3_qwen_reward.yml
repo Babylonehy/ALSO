@@ -1,0 +1,25 @@
+# Neural UCB Bandit - Qwen 2.5-72B as Reward Model
+#
+# 使用 Qwen 2.5-72B 作为奖励模型（替代 DeepSeek V3.2）
+# beta=0.05
+#
+# Usage:
+#   tmuxinator start -p conf/main_experiments/neural_ucb_v3_qwen_reward.yml
+#   tmuxinator start -p conf/main_experiments/neural_ucb_v3_qwen_reward.yml batch=30
+
+name: main-neural-ucb-v3-qwen-reward-batch<%= (@settings["batch"] || "40").to_s %>
+root: .
+startup_window: qwen_reward
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/lixiang1/sotopia" %>/experiments/also
+  - source <%= @settings["project_root"] || "/lixiang1/sotopia" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+
+windows:
+  # Neural UCB with Qwen reward model - optimize both
+  - qwen_reward:
+      layout: tiled
+      panes:
+        - CUDA_VISIBLE_DEVICES=0 uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores --subset hard --model "custom/qwen/qwen-2.5-72b-instruct@http://10.26.6.88:47845/v1" --reward-eval-model "custom/qwen/qwen-2.5-72b-instruct@http://10.26.6.88:47845/v1" --bandit-type neural_ucb --optimize both --beta 0.05 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/lixiang1/sotopia" %>/experiments/also/cache/strategy_embeddings_v3_slim --tag-suffix qwen_reward
+

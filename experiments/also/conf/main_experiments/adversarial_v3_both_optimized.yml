@@ -1,0 +1,35 @@
+# Neural Adversarial Bandit Configuration - Optimized for Both Mode
+#
+# 问题诊断:
+# 1. Both 模式下 P1 和 P2 独立学习，选择不同策略 (88.4% 不同)
+# 2. Arm 0 (无策略) 在前期被过多选择 (P2: 80%, P1: 53%)
+# 3. 两个 bandit 可能互相干扰学习
+#
+# 优化策略:
+# - gamma 0.2: 增加最小探索概率，避免卡在 Arm 0
+# - score-decay 0.7: 更快遗忘旧分数，适应对手策略变化
+# - dynamic-eta: 前期多探索，后期多利用
+# - eta 15: 增加探索，避免过早收敛到次优策略
+# - cumulative-score-mode mean: 同时使用 NN 预测和实际观测分数
+#
+# Usage:
+#   tmuxinator start -p conf/main_experiments/adversarial_v3_both_optimized.yml
+#   tmuxinator start -p conf/main_experiments/adversarial_v3_both_optimized.yml eta=20 gamma=0.3 score_mode=actual
+
+name: main-adversarial-v3-both-opt-eta<%= (@settings["eta"] || "15").to_s.gsub(".", "_") %>-gamma<%= (@settings["gamma"] || "0.2").to_s.gsub(".", "_") %>-<%= @settings["score_mode"] || "nn" %>
+root: .
+startup_window: qwen25_72b
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/workspace/lixiang/sotopia" %>/experiments/also
+  - source <%= @settings["project_root"] || "/workspace/lixiang/sotopia" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+
+windows:
+  # Qwen 2.5-72B with optimized Both mode parameters
+  - qwen25_72b:
+      layout: tiled
+      panes:
+        # Optimize: both (with optimized parameters)
+        - CUDA_VISIBLE_DEVICES=0 uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores --context-embedding --subset hard --model custom/qwen/qwen-2.5-72b-instruct@http://10.26.6.88:47845/v1 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize both --eta <%= @settings["eta"] || "15" %> --epochs 100 --alpha 0.1 --beta 1.0 --gamma <%= @settings["gamma"] || "0.2" %> --score-decay <%= @settings["score_decay"] || "0.7" %> --cumulative-score-mode <%= @settings["score_mode"] || "nn" %> --importance-weighted-reward --dynamic-eta --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/workspace/lixiang/sotopia" %>/experiments/also/cache/strategy_embeddings_v3_slim
+

@@ -1,0 +1,34 @@
+# Tmuxinator configuration for Neural UCB (without context embedding) with Strategy V3 (Qwen Custom)
+# V3: 16 extended strategies (baseline + cooperative + competitive + deceptive + rational + diplomatic + exploratory + utility)
+# This version does NOT use context embedding - only arm embeddings are used
+#
+# UCB Parameters:
+#   - lambda (alpha): 0.1 (regularization for covariance matrix)
+#   - nu (beta): 1.0 (exploration parameter for UCB)
+#
+# Model: Custom Qwen endpoint at 10.26.6.88:47845
+#
+# Usage:
+#   tmuxinator start -p conf/main_experiments/bandit_neural_ucb_no_context_v3_lamda01_nu1.yml gpu=0
+#   tmuxinator start -p conf/main_experiments/bandit_neural_ucb_no_context_v3_lamda01_nu1.yml gpu=0 batch=30
+
+name: neural-ucb-no-ctx-v3-qwen-custom-lamda01-nu1-batch<%= (@settings["batch"] || "40").to_s %>
+root: .
+startup_window: qwen
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/lixiang1/sotopia" %>/experiments/also
+  - source <%= @settings["project_root"] || "/lixiang1/sotopia" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+
+windows:
+  - qwen:
+      layout: tiled
+      panes:
+        # Optimize: p1
+        # - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores --subset hard --model "custom/qwen/qwen-2.5-72b-instruct@http://10.26.6.88:47845/v1" --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize p1 --alpha 0.1 --beta 1.0 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/lixiang1/sotopia" %>/experiments/also/cache/strategy_embeddings_v3_slim
+        # Optimize: p2
+        # - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores --subset hard --model "custom/qwen/qwen-2.5-72b-instruct@http://10.26.6.88:47845/v1" --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize p2 --alpha 0.1 --beta 1.0 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/lixiang1/sotopia" %>/experiments/also/cache/strategy_embeddings_v3_slim
+        # Optimize: both
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores --subset hard --model "custom/qwen/qwen-2.5-72b-instruct@http://10.26.6.88:47845/v1" --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize both --alpha 0.1 --beta 0.5 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/lixiang1/sotopia" %>/experiments/also/cache/strategy_embeddings_v3_slim
+

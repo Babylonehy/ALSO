@@ -1,0 +1,50 @@
+# Adversarial Experiment - DeepSeek & Qwen - HARD Dataset - Optimized Eta
+#
+# Dataset: hard (SOTOPIA-HARD, 70 combos from 14 environments)
+# Models: openrouter/deepseek/deepseek-v3.2, openrouter/qwen/qwen-2.5-72b-instruct
+# Reward Model: openrouter/deepseek/deepseek-v3.2
+# Strategy: s24 (24 strategies)
+# Eta: 4.0 (with multiplication dynamic_eta formula)
+#
+# Key changes from previous experiments:
+# - dynamic_eta uses multiplication: effective_eta = eta * sqrt(turn + 1)
+# - eta=4 gives: Turn 1 -> 5.7, Turn 10 -> 13.3, Turn 20 -> 18.3
+# - This increases exploitation over time (correct direction)
+#
+# Usage:
+#   tmuxinator start -p conf/main_experiments/adversarial_s24_hard_eta4.yml
+#   tmuxinator start -p conf/main_experiments/adversarial_s24_hard_eta4.yml batch=70
+
+name: adversarial-s24-hard-eta4-batch<%= (@settings["batch"] || "70").to_s %>
+root: .
+startup_window: deepseek_both
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/lixiang1/sotopia" %>/experiments/also
+  - source <%= @settings["project_root"] || "/lixiang1/sotopia" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+
+windows:
+  # DeepSeek V3.2 - Optimize both
+  - deepseek_both:
+      layout: tiled
+      panes:
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version s24 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "70" %> --no-mask-unselected-scores --context-embedding --subset hard --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize both --eta 4.0 --dynamic-eta --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/lixiang1/sotopia" %>/experiments/also/cache/strategy_embeddings_s24 --tag-suffix s24_hard_eta4_ds
+
+  # Qwen 2.5 72B (Custom Local) - Optimize both
+  - qwen_both:
+      layout: tiled
+      panes:
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version s24 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "70" %> --no-mask-unselected-scores --context-embedding --subset hard --model "custom/qwen/qwen-2.5-72b-instruct@http://10.26.6.88:47845/v1" --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize both --eta 4.0 --dynamic-eta --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/lixiang1/sotopia" %>/experiments/also/cache/strategy_embeddings_s24 --tag-suffix s24_hard_eta4_qwen
+
+  # Qwen 2.5 72B (Custom Local) - Optimize both - Qwen reward
+  - qwen_both_qwen_reward:
+      layout: tiled
+      panes:
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version s24 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "70" %> --no-mask-unselected-scores --context-embedding --subset hard --model "custom/qwen/qwen-2.5-72b-instruct@http://10.26.6.88:47845/v1" --reward-eval-model "custom/qwen/qwen-2.5-72b-instruct@http://10.26.6.88:47845/v1" --bandit-type adversarial --optimize both --eta 4.0 --dynamic-eta --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/lixiang1/sotopia" %>/experiments/also/cache/strategy_embeddings_s24 --tag-suffix s24_hard_eta4_qwen_qr
+
+  # Qwen 2.5 72B (Custom Local) - Neural UCB - Optimize both - No Context
+  - qwen_ucb_both:
+      layout: tiled
+      panes:
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version s24 --batch --batch-size <%= @settings["batch"] || "70" %> --no-mask-unselected-scores --subset hard --model "custom/qwen/qwen-2.5-72b-instruct@http://10.26.6.88:47845/v1" --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize both --alpha 0.1 --beta 1.0 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/lixiang1/sotopia" %>/experiments/also/cache/strategy_embeddings_s24 --tag-suffix s24_hard_ucb_qwen_no_ctx
