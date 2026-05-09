@@ -341,30 +341,6 @@ uv run python -m py_compile \
   experiments/also/scripts/generate_strategy_cache.py
 ```
 
-## Citation
-
-If this artifact is useful for your research, please cite:
-
-```bibtex
-@inproceedings{li2026also,
-  title = {ALSO: Adversarial Online Strategy Optimization for Social Agents},
-  author = {Li, Xiang and Yi, Liping and Kong, Mingze and Zhang, Ming and Dai, Zhongxiang and Hu, Qinghua},
-  booktitle = {Proceedings of the International Conference on Machine Learning},
-  year = {2026}
-}
-```
-
-This repository builds on Sotopia:
-
-```bibtex
-@inproceedings{zhou2024sotopia,
-  title = {SOTOPIA: Interactive Evaluation for Social Intelligence in Language Agents},
-  author = {Zhou, Xuhui and Zhu, Hao and Mathur, Leena and Zhang, Ruohong and Qi, Zhengyang and Yu, Haofei and Morency, Louis-Philippe and Bisk, Yonatan and Fried, Daniel and Neubig, Graham and Sap, Maarten},
-  booktitle = {International Conference on Learning Representations},
-  year = {2024}
-}
-```
-
 ## Acknowledgements
 
 The experiment environment is built on the Sotopia social simulation framework. The project-page style follows common academic project-page conventions and links to the public ALSO page for figures, ablations, and qualitative examples.
