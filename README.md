@@ -30,6 +30,10 @@ ALSO formulates turn-level strategy adaptation as an adversarial bandit problem.
 
 This repository contains the Sotopia-based implementation used for the paper experiments, including the main ALSO runner, strategy spaces, bandit baselines, evaluation scripts, and focused regression tests.
 
+<div align="center">
+  <img src="docs/static/images/framework.png" alt="ALSO framework overview" width="900">
+</div>
+
 ## Highlights
 
 - **Online adaptation**: adapts within a single multi-turn interaction instead of relying on offline retraining.
