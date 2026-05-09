@@ -20,7 +20,6 @@ Xiang Li<sup>1</sup>, Liping Yi<sup>1</sup>, Mingze Kong<sup>2</sup>, Ming Zhang
 ## News
 
 - **2026**: ALSO is accepted to ICML 2026.
-- The repository has been cleaned as a lightweight paper artifact. Generated outputs, large caches, figures, and historical analysis files are not committed.
 
 ## Overview
 
