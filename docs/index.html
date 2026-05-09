@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ALSO: Adversarial Online Strategy Optimization for Social Agents</title>
+  <meta name="description" content="ALSO is the first framework for online strategy optimization in multi-agent social simulation, formulated as an adversarial bandit problem.">
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+
+  <style>
+    body { font-family: 'Google Sans', 'Noto Sans', sans-serif; }
+    .publication-title { font-family: 'Google Sans', sans-serif; }
+    .author-block { font-size: 1.1rem; }
+    .affiliation-block { font-size: 0.95rem; color: #555; }
+    .teaser img { max-width: 100%; height: auto; }
+    .section-title { margin-bottom: 1rem; }
+    pre.bibtex { background: #f5f5f5; padding: 1rem; border-radius: 4px; overflow-x: auto; font-size: 0.9rem; }
+    .button.is-dark { background-color: #363636; }
+    .footer { padding: 2rem 1.5rem; }
+    .results img { border: 1px solid #eaeaea; border-radius: 4px; }
+
+    /* Tables */
+    table.results-table { font-size: 0.9rem; }
+    table.results-table th { background: #fafafa; }
+    table.results-table .best { font-weight: bold; }
+    table.results-table .second { text-decoration: underline; }
+    table.results-table .group-head { background: #f0f4f8; font-weight: 600; }
+
+    /* Case-study chat UI */
+    .case-tabs button {
+      border: 1px solid #dbdbdb; background: #fff; padding: 0.5em 1.2em;
+      cursor: pointer; font-size: 0.95rem; border-radius: 6px; margin-right: 0.5rem;
+    }
+    .case-tabs button.active { background: #363636; color: #fff; border-color: #363636; }
+    .chat-window {
+      background: #f7f8fa; border-radius: 12px; padding: 1.5rem;
+      max-width: 760px; margin: 1.5rem auto 0; min-height: 360px;
+    }
+    .turn { margin-bottom: 1rem; opacity: 0; transform: translateY(8px); transition: all .35s ease; }
+    .turn.show { opacity: 1; transform: translateY(0); }
+    .turn .meta { font-size: 0.78rem; color: #888; margin-bottom: 0.2rem; }
+    .turn .strategy {
+      display: inline-block; background: #fff3cd; color: #7a5b00;
+      border-radius: 4px; padding: 1px 8px; font-size: 0.75rem; margin-left: 6px;
+    }
+    .bubble {
+      display: inline-block; padding: 0.7rem 1rem; border-radius: 14px;
+      max-width: 85%; line-height: 1.45; font-size: 0.95rem;
+    }
+    .speaker-a .bubble { background: #fff; border: 1px solid #e3e6ea; }
+    .speaker-b .bubble { background: #d8e9ff; }
+    .speaker-b { text-align: right; }
+    .reward-badge {
+      display: inline-block; font-size: 0.78rem; padding: 2px 8px;
+      border-radius: 999px; background: #e8f5e9; color: #2e7d32; margin-left: 6px;
+    }
+    .reward-badge.bad { background: #fdecea; color: #c0392b; }
+    .case-controls { text-align: center; margin-top: 1rem; }
+    .case-controls button {
+      background: #363636; color: #fff; border: none; border-radius: 999px;
+      padding: 0.5rem 1.4rem; font-size: 0.9rem; cursor: pointer; margin: 0 4px;
+    }
+    .case-controls button.secondary { background: #fff; color: #363636; border: 1px solid #dbdbdb; }
+    .case-result { text-align: center; margin-top: 0.8rem; font-size: 0.95rem; color: #555; }
+  </style>
+</head>
+<body>
+
+<!-- ============== HEADER ============== -->
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop has-text-centered">
+      <h1 class="title is-2 publication-title">
+        ALSO: Adversarial Online Strategy Optimization for Social Agents
+      </h1>
+      <p class="subtitle is-5"><em>ICML 2026 Submission</em></p>
+
+      <div class="is-size-5 author-block">
+        <span>Xiang Li<sup>1</sup>,</span>
+        <span>Liping Yi<sup>1</sup>,</span>
+        <span>Mingze Kong<sup>2</sup>,</span>
+        <span>Ming Zhang<sup>3</sup>,</span>
+        <span>Zhongxiang Dai<sup>2</sup>&dagger;,</span>
+        <span>Qinghua Hu<sup>1</sup></span>
+      </div>
+
+      <div class="affiliation-block mt-3">
+        <span><sup>1</sup>Tianjin University</span> &nbsp;
+        <span><sup>2</sup>The Chinese University of Hong Kong, Shenzhen</span> &nbsp;
+        <span><sup>3</sup>East China Normal University</span>
+      </div>
+      <div class="affiliation-block mt-1">
+        <small>&dagger; Corresponding author: daizhongxiang@cuhk.edu.cn</small>
+      </div>
+
+      <div class="buttons is-centered mt-5">
+        <a class="button is-dark is-rounded" href="static/pdfs/ALSO_paper.pdf">
+          <span class="icon"><i class="fas fa-file-pdf"></i></span><span>Paper</span>
+        </a>
+        <a class="button is-dark is-rounded" href="https://arxiv.org/" target="_blank" rel="noopener">
+          <span class="icon"><i class="ai ai-arxiv"></i></span><span>arXiv (coming soon)</span>
+        </a>
+        <a class="button is-dark is-rounded" href="https://github.com/" target="_blank" rel="noopener">
+          <span class="icon"><i class="fab fa-github"></i></span><span>Code (coming soon)</span>
+        </a>
+        <a class="button is-dark is-rounded" href="#bibtex">
+          <span class="icon"><i class="fas fa-quote-left"></i></span><span>BibTeX</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== TEASER (Fig. 1) ============== -->
+<section class="section pt-0">
+  <div class="container is-max-desktop">
+    <div class="teaser has-text-centered">
+      <img src="static/images/also-demo.png" alt="ALSO motivating example">
+      <p class="is-size-6 has-text-grey mt-3">
+        <strong>Figure 1.</strong> Static personas drive social agents into rigid, deadlocked exchanges. ALSO injects turn-level adaptive strategies on top of the persona, enabling the agent to break out of dead-locks and reach goal-aligned outcomes.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============== ABSTRACT ============== -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered section-title">Abstract</h2>
+    <div class="content has-text-justified">
+      <p>
+        Social simulation provides a compelling testbed for studying social intelligence, where agents interact through multi-turn dialogues under evolving contexts and strategically adapting opponents. Such environments are inherently <em>non-stationary</em>, requiring agents to dynamically adjust their strategies over time. However, most LLM-based social agents rely on static personas, while existing approaches&mdash;such as offline RL or external planners&mdash;are ill-suited to these settings, typically assuming stationarity and incurring substantial training overhead.
+      </p>
+      <p>
+        We propose <strong>ALSO</strong> (<strong>A</strong>dversarial on<strong>L</strong>ine <strong>S</strong>trategy <strong>O</strong>ptimization), the first framework for online strategy optimization in multi-agent social simulation. ALSO formulates multi-turn interaction as an <strong>adversarial bandit</strong> problem (persona &times; strategy as arms) and introduces a <strong>lightweight neural surrogate</strong> that predicts rewards from interaction histories, enabling sample-efficient exploration and continuous online adaptation. Experiments on the <strong>Sotopia</strong> benchmark show that ALSO consistently outperforms static baselines and existing optimization methods.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============== FRAMEWORK ============== -->
+<section class="section hero is-light">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered section-title">Framework</h2>
+    <div class="teaser has-text-centered">
+      <img src="static/images/framework.png" alt="ALSO architecture overview">
+      <p class="is-size-6 has-text-grey mt-3">
+        <strong>Figure 1.</strong> Overview of ALSO. At each turn, an adversarial bandit selects a (persona, strategy) arm and injects it into the social agent&rsquo;s prompt. A lightweight neural surrogate predicts per-arm rewards from the running interaction history, enabling sample-efficient online adaptation against non-stationary opponents.
+      </p>
+    </div>
+    <div class="content mt-5">
+      <ul>
+        <li><strong>Adversarial bandit formulation.</strong> No stochastic assumption on opponents — works against shifting, deceptive, or stronger partners.</li>
+        <li><strong>Strategy injection, not fine-tuning.</strong> No model weights are updated; high-level behavioral instructions (e.g., <em>build rapport</em>, <em>apply scarcity pressure</em>) are swapped at runtime.</li>
+        <li><strong>Neural reward surrogate.</strong> A small network learns to predict per-arm rewards from conversation history, sharply reducing exploration cost in sparse-feedback dialogues.</li>
+        <li><strong>Online &amp; episode-free.</strong> Adaptation happens within a single multi-turn interaction — no offline retraining, no episode resets.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============== MAIN RESULTS TABLE ============== -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered section-title">Main Results</h2>
+    <p class="has-text-centered has-text-grey is-size-6 mb-4">
+      Sotopia benchmark (&ldquo;Both&rdquo; setting). <span class="best">Bold</span> = 1st, <span class="second">underline</span> = 2nd. Rel. = Relationship, Know. = Knowledge.
+    </p>
+    <div class="table-container">
+      <table class="table is-striped is-hoverable is-fullwidth results-table">
+        <thead>
+          <tr>
+            <th rowspan="2">Model</th>
+            <th rowspan="2">Method</th>
+            <th colspan="4" class="has-text-centered">Sotopia-All</th>
+            <th colspan="4" class="has-text-centered">Sotopia-Hard</th>
+          </tr>
+          <tr>
+            <th>Goal &uarr;</th><th>Rel. &uarr;</th><th>Know. &uarr;</th><th>Overall &uarr;</th>
+            <th>Goal &uarr;</th><th>Rel. &uarr;</th><th>Know. &uarr;</th><th>Overall &uarr;</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr class="group-head"><td colspan="10">DeepSeek-V3.2</td></tr>
+          <tr><td></td><td>Original</td><td>8.207</td><td>2.543</td><td>5.279</td><td>3.619</td><td>6.521</td><td>1.321</td><td>4.371</td><td>3.025</td></tr>
+          <tr><td></td><td>Instinct</td><td class="best">8.507</td><td>2.835</td><td class="second">6.092</td><td class="second">3.851</td><td class="second">6.921</td><td class="second">2.157</td><td class="second">5.443</td><td class="second">3.427</td></tr>
+          <tr><td></td><td>OPRO</td><td>8.173</td><td class="second">2.860</td><td>6.082</td><td>3.787</td><td>6.807</td><td>2.029</td><td>5.350</td><td>3.344</td></tr>
+          <tr><td></td><td>EvoPrompt</td><td>8.231</td><td>2.773</td><td>5.741</td><td>3.737</td><td>6.771</td><td>1.929</td><td>5.150</td><td>3.292</td></tr>
+          <tr><td></td><td><strong>ALSO (Ours)</strong></td><td class="second">8.501</td><td class="best">2.898</td><td class="best">6.137</td><td class="best">3.889</td><td class="best">7.114</td><td class="best">2.429</td><td class="best">5.471</td><td class="best">3.527</td></tr>
+
+          <tr class="group-head"><td colspan="10">Qwen2.5-72B</td></tr>
+          <tr><td></td><td>Original</td><td>7.991</td><td>2.978</td><td>5.434</td><td>3.676</td><td>6.841</td><td>2.449</td><td>4.928</td><td>3.347</td></tr>
+          <tr><td></td><td>Instinct</td><td class="second">8.437</td><td class="best">3.414</td><td class="second">5.511</td><td class="second">3.848</td><td class="second">7.386</td><td class="best">3.086</td><td class="second">5.286</td><td class="best">3.666</td></tr>
+          <tr><td></td><td>OPRO</td><td>8.182</td><td>2.657</td><td>5.490</td><td>3.689</td><td>6.707</td><td>1.886</td><td>4.629</td><td>3.242</td></tr>
+          <tr><td></td><td>EvoPrompt</td><td>8.410</td><td>3.341</td><td>5.441</td><td>3.825</td><td>7.150</td><td>2.729</td><td>4.993</td><td>3.491</td></tr>
+          <tr><td></td><td><strong>ALSO (Ours)</strong></td><td class="best">8.447</td><td class="second">3.412</td><td class="best">5.698</td><td class="best">3.882</td><td class="best">7.452</td><td class="second">3.048</td><td class="best">5.384</td><td class="second">3.648</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="has-text-centered has-text-grey is-size-7">ALSO achieves best or near-best across all metrics on both Sotopia-All and the harder Sotopia-Hard split.</p>
+  </div>
+</section>
+
+<!-- ============== ABLATION ============== -->
+<section class="section hero is-light">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered section-title">Ablation Studies</h2>
+
+    <h3 class="title is-5 has-text-centered mt-5">Component-wise Ablation</h3>
+    <p class="has-text-centered is-size-7 has-text-grey mb-3">Removing or replacing one design element at a time. The neural surrogate is the most influential component; randomized exploration (EXP3) is necessary under non-stationary co-adaptation.</p>
+    <div class="table-container">
+      <table class="table is-bordered is-fullwidth results-table">
+        <thead><tr><th>Variant</th><th>Goal</th><th>Rel.</th><th>Know.</th><th>Overall</th></tr></thead>
+        <tbody>
+          <tr><td><strong>ALSO (full)</strong></td><td class="best">7.93</td><td class="best">3.07</td><td class="best">6.46</td><td class="best">3.91</td></tr>
+          <tr><td>w/o EXP3 (&epsilon;-greedy)</td><td>7.50</td><td>2.71</td><td>5.32</td><td>3.61</td></tr>
+          <tr><td>w/o Score Smoothing</td><td>7.57</td><td>2.25</td><td>5.39</td><td>3.57</td></tr>
+          <tr><td>w/o Context Embedding</td><td>7.43</td><td>2.64</td><td>4.82</td><td>3.51</td></tr>
+          <tr><td>w/o Neural Surrogate</td><td>6.89</td><td>2.00</td><td>4.93</td><td>3.33</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="title is-5 has-text-centered mt-6">Impact of Social Context</h3>
+    <p class="has-text-centered is-size-7 has-text-grey mb-3">Removing historical interaction context degrades all metrics, confirming that effective strategy selection depends on the evolving interaction state.</p>
+    <div class="table-container" style="max-width: 520px; margin: 0 auto;">
+      <table class="table is-bordered is-fullwidth results-table">
+        <thead><tr><th>Variant</th><th>Goal</th><th>Rel.</th><th>Overall</th></tr></thead>
+        <tbody>
+          <tr><td><strong>With Context</strong></td><td class="best">7.32</td><td class="best">3.14</td><td class="best">3.59</td></tr>
+          <tr><td>Without Context</td><td>6.93</td><td>2.64</td><td>3.44</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 class="title is-5 has-text-centered mt-6">Single vs. Bilateral Optimization</h3>
+    <figure class="image mt-3">
+      <img src="static/images/bilateral.png" alt="Bilateral vs unilateral optimization">
+    </figure>
+    <p class="has-text-centered is-size-7 has-text-grey">Bilateral optimization (both agents adapt) consistently outperforms P1-only and P2-only on Qwen-2.5-72B (p&lt;0.001) and DeepSeek-V3.2 (p&lt;0.01); largest gains on Relationship and Knowledge.</p>
+
+    <h3 class="title is-5 has-text-centered mt-6">Cross-Scenario Generalization</h3>
+    <figure class="image mt-3">
+      <img src="static/images/generalization.png" alt="Cross-scenario generalization">
+    </figure>
+    <p class="has-text-centered is-size-7 has-text-grey">Zero-shot transfer to 7 unseen scenarios reaches Goal 7.14 vs.&nbsp;6.79 (+5.3%) and Overall 3.60 vs.&nbsp;3.17 (+13.5%) over an online-from-scratch baseline — ALSO captures transferable social patterns.</p>
+
+    <h3 class="title is-5 has-text-centered mt-6">Heterogeneous Model Pairing</h3>
+    <figure class="image mt-3">
+      <img src="static/images/cross_model_hm.png" alt="Heterogeneous model pairing heatmap">
+    </figure>
+    <p class="has-text-centered is-size-7 has-text-grey">ALSO yields consistent gains across all heterogeneous dyads of DeepSeek-V3.2, Qwen-2.5-72B, and GPT-4o-mini, showing a general optimization effect rather than pair-specific tuning.</p>
+  </div>
+</section>
+
+<!-- ============== CASE STUDY ============== -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered section-title">Case Study: Conflict Resolution</h2>
+    <p class="has-text-centered has-text-grey is-size-6">
+      Same scenario, two agents. <strong>Vanilla</strong> (no strategy) loops into a deadlock; <strong>ALSO</strong> injects turn-level strategies and reaches agreement.
+    </p>
+
+    <div class="case-tabs has-text-centered mt-4">
+      <button id="tab-vanilla" class="active" onclick="switchCase('vanilla')">Vanilla (Deadlock)</button>
+      <button id="tab-also" onclick="switchCase('also')">ALSO (Adaptive)</button>
+    </div>
+
+    <div class="chat-window" id="chat"></div>
+
+    <div class="case-controls">
+      <button onclick="resetChat()" class="secondary"><i class="fas fa-redo"></i> Replay</button>
+      <button onclick="stepChat()"><i class="fas fa-step-forward"></i> Next Turn</button>
+      <button onclick="autoPlay()"><i class="fas fa-play"></i> Auto-play</button>
+    </div>
+    <div id="case-result" class="case-result"></div>
+  </div>
+</section>
+
+<!-- ============== BIBTEX ============== -->
+<section class="section hero is-light" id="bibtex">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered section-title">BibTeX</h2>
+    <pre class="bibtex">@inproceedings{li2026also,
+  title     = {ALSO: Adversarial Online Strategy Optimization for Social Agents},
+  author    = {Li, Xiang and Yi, Liping and Kong, Mingze and Zhang, Ming and Dai, Zhongxiang and Hu, Qinghua},
+  booktitle = {Proceedings of the 43rd International Conference on Machine Learning (ICML)},
+  year      = {2026},
+  note      = {Under review}
+}</pre>
+  </div>
+</section>
+
+<footer class="footer has-background-light">
+  <div class="container is-max-desktop has-text-centered">
+    <p class="is-size-7 has-text-grey">
+      Page template adapted from the
+      <a href="https://github.com/nerfies/nerfies.github.io">Nerfies</a> project page,
+      released under
+      <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC&nbsp;BY-SA&nbsp;4.0</a>.
+    </p>
+  </div>
+</footer>
+
+<!-- ============== CASE-STUDY SCRIPT ============== -->
+<script>
+const cases = {
+  vanilla: {
+    label: "Vanilla — No Strategy",
+    result: "Deadlock until timeout. Reward = 0.",
+    turns: [
+      { speaker: "A", name: "Sophia (Turn 7)", text: "I appreciate your willingness, but the issues have been persistent. I really think it's best for everyone if you find a new place to stay as soon as possible." },
+      { speaker: "B", name: "Jasmine (Turn 8)", text: "Sophia, I hear you. Can we at least give it a week to see if I can make a difference?" },
+      { speaker: "A", name: "Sophia (Turn 9)", text: "I appreciate your commitment, Jasmine, but I need to stick with my decision." },
+      { speaker: "B", name: "Jasmine (Turn 10)", text: "I really am trying. Just one more chance, please." },
+      { speaker: "A", name: "Sophia (Turn 11)", text: "I'm sorry, my decision stands.", reward: { val: "0.00", bad: true } }
+    ]
+  },
+  also: {
+    label: "ALSO — Dynamic Strategy Injection",
+    result: "Agreement reached. Reward ≈ 0.89.",
+    turns: [
+      { speaker: "A", name: "Sophia (Turn 7)", strategy: "Validate Before Redirecting",
+        text: "I really appreciate your willingness. Maybe we can find a compromise where you stay for a short while longer to help you transition smoothly?",
+        reward: { val: "+Rel" } },
+      { speaker: "B", name: "Jasmine (Turn 8)", strategy: "Address Asymmetric Needs",
+        text: "I understand. I'll start looking for another place right away. Maybe just a couple more weeks? I promise to be even more mindful of the house rules.",
+        reward: { val: "+Goal" } },
+      { speaker: "A", name: "Sophia (Turn 9)", strategy: "Normalize the Disagreement",
+        text: "I really appreciate your understanding, Jasmine. A couple more weeks would be great. Let's make sure we both feel good about this.",
+        reward: { val: "0.89" } }
+    ]
+  }
+};
+
+let currentCase = "vanilla";
+let cursor = 0;
+let autoTimer = null;
+
+function renderCurrentTurn() {
+  const data = cases[currentCase];
+  const t = data.turns[cursor];
+  if (!t) return;
+  const div = document.createElement("div");
+  div.className = "turn speaker-" + (t.speaker === "A" ? "a" : "b");
+  const strat = t.strategy ? `<span class="strategy">Strategy: ${t.strategy}</span>` : "";
+  const rew = t.reward ? `<span class="reward-badge ${t.reward.bad ? "bad" : ""}">reward ${t.reward.val}</span>` : "";
+  div.innerHTML = `<div class="meta">${t.name} ${strat} ${rew}</div><div class="bubble">${t.text}</div>`;
+  document.getElementById("chat").appendChild(div);
+  requestAnimationFrame(() => div.classList.add("show"));
+  cursor++;
+  if (cursor >= data.turns.length) {
+    document.getElementById("case-result").textContent = data.result;
+  }
+}
+
+function stepChat() {
+  if (cursor >= cases[currentCase].turns.length) return;
+  renderCurrentTurn();
+}
+
+function resetChat() {
+  cursor = 0;
+  if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+  document.getElementById("chat").innerHTML = "";
+  document.getElementById("case-result").textContent = "";
+}
+
+function autoPlay() {
+  resetChat();
+  autoTimer = setInterval(() => {
+    if (cursor >= cases[currentCase].turns.length) {
+      clearInterval(autoTimer); autoTimer = null; return;
+    }
+    renderCurrentTurn();
+  }, 1400);
+}
+
+function switchCase(name) {
+  currentCase = name;
+  document.getElementById("tab-vanilla").classList.toggle("active", name === "vanilla");
+  document.getElementById("tab-also").classList.toggle("active", name === "also");
+  resetChat();
+  autoPlay();
+}
+
+document.addEventListener("DOMContentLoaded", () => { autoPlay(); });
+</script>
+
+</body>
+</html>
