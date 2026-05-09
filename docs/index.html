@@ -32,9 +32,23 @@
     }
 
     .teaser img {
-      max-width: 100%;
+      max-width: 820px;
+      width: 100%;
       height: auto;
+      display: block;
+      margin: 0 auto;
     }
+
+    /* Cap inline figures so very wide PDFs don't dominate the page */
+    figure.image img {
+      max-width: 720px;
+      width: 100%;
+      height: auto;
+      display: block;
+      margin: 0 auto;
+    }
+    figure.image.is-narrow img { max-width: 520px; }
+    figure.image.is-wide   img { max-width: 880px; }
 
     .section-title {
       margin-bottom: 1rem;
@@ -580,7 +594,7 @@
       transferable social patterns.</p>
 
     <h3 class="title is-5 has-text-centered mt-6">Heterogeneous Model Pairing</h3>
-    <figure class="image mt-3">
+    <figure class="image is-narrow mt-3">
       <img src="static/images/cross_model_hm.png" alt="Heterogeneous model pairing heatmap">
     </figure>
     <p class="has-text-centered is-size-7 has-text-grey">ALSO yields consistent gains across all heterogeneous dyads of
@@ -588,7 +602,7 @@
       tuning.</p>
 
     <h3 class="title is-5 has-text-centered mt-6">Strategy Selection and Convergence Across Diverse Scenarios</h3>
-    <figure class="image mt-3">
+    <figure class="image is-wide mt-3">
       <img src="static/images/scenario_strategy.png" alt="Strategy selection trajectories across scenarios">
     </figure>
     <p class="has-text-centered is-size-7 has-text-grey">
