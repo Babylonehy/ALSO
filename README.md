@@ -10,6 +10,8 @@ Xiang Li<sup>1</sup>, Liping Yi<sup>1</sup>, Mingze Kong<sup>2</sup>, Ming Zhang
 <sup>2</sup>The Chinese University of Hong Kong, Shenzhen &nbsp;&nbsp;
 <sup>3</sup>East China Normal University
 
+<img src="docs/static/images/framework.png" alt="ALSO framework overview" width="900">
+
 [[Project Page](https://babylonehy.github.io/ALSO/)]
 [[Paper](https://babylonehy.github.io/ALSO/static/pdfs/ALSO_paper.pdf)]
 [[arXiv](https://arxiv.org/)]
@@ -19,7 +21,7 @@ Xiang Li<sup>1</sup>, Liping Yi<sup>1</sup>, Mingze Kong<sup>2</sup>, Ming Zhang
 
 ## News
 
-- **2026**: ALSO is accepted to ICML 2026.
+- **May 2026**: ALSO is accepted to ICML 2026.
 
 ## Overview
 
@@ -28,10 +30,6 @@ ALSO studies online strategy optimization for LLM-based social agents in multi-t
 ALSO formulates turn-level strategy adaptation as an adversarial bandit problem. At each dialogue turn, the system selects a persona-strategy arm, injects the selected social strategy into the agent prompt, observes reward feedback from the interaction, and updates a lightweight neural surrogate for sample-efficient online adaptation. No model weights are fine-tuned.
 
 This repository contains the Sotopia-based implementation used for the paper experiments, including the main ALSO runner, strategy spaces, bandit baselines, evaluation scripts, and focused regression tests.
-
-<div align="center">
-  <img src="docs/static/images/framework.png" alt="ALSO framework overview" width="900">
-</div>
 
 ## Highlights
 
