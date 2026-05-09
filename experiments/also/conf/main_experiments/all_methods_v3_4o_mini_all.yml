@@ -1,0 +1,58 @@
+# Multi-method comparison config for GPT-4o-mini on the full `all` subset.
+# Keeps the main knobs aligned so adversarial, baseline, OPRO, EvoPrompt, and
+# Neural UCB can be compared directly.
+#
+# Methods included:
+# 1. adversarial (optimize=both)
+# 2. baseline adversarial (optimize=none)
+# 3. opro
+# 4. evoprompt_ga
+# 5. neural_ucb
+#
+# Usage:
+#   tmuxinator start -p conf/main_experiments/all_methods_v3_4o_mini_all.yml
+#   tmuxinator start -p conf/main_experiments/all_methods_v3_4o_mini_all.yml gpu=0 batch=40
+#   tmuxinator start -p conf/main_experiments/all_methods_v3_4o_mini_all.yml adv_gpu=0 base_gpu=1 opro_gpu=2 evo_gpu=3 ucb_gpu=4
+
+name: all-methods-v3-4o-mini-all-batch<%= (@settings["batch"] || "40").to_s %>
+root: .
+startup_window: adversarial
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/workspace/lixiang/sotopia" %>/experiments/also
+  - source <%= @settings["project_root"] || "/workspace/lixiang/sotopia" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+
+<%
+project_root = @settings["project_root"] || "/workspace/lixiang/sotopia"
+batch_size = @settings["batch"] || "40"
+cache_dir = @settings["strategy_cache_dir"] || "#{project_root}/experiments/also/cache/strategy_embeddings_v3_slim"
+model = "openrouter/openai/gpt-4o-mini"
+reward_model = "openrouter/deepseek/deepseek-v3.2"
+%>
+
+windows:
+  - adversarial:
+      layout: even-horizontal
+      panes:
+        - CUDA_VISIBLE_DEVICES=<%= @settings["adv_gpu"] || @settings["gpu"] || "0" %> uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= batch_size %> --no-mask-unselected-scores --context-embedding --subset all --model <%= model %> --reward-eval-model <%= reward_model %> --bandit-type adversarial --optimize both --eta <%= @settings["eta"] || "10" %> --max-turns 20 --push-to-db --strategy-cache-dir <%= cache_dir %>
+
+  - baseline:
+      layout: even-horizontal
+      panes:
+        - CUDA_VISIBLE_DEVICES=<%= @settings["base_gpu"] || @settings["gpu"] || "0" %> uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --batch --batch-size <%= batch_size %> --subset all --model <%= model %> --reward-eval-model <%= reward_model %> --bandit-type adversarial --optimize none --max-turns 20 --push-to-db --strategy-cache-dir <%= cache_dir %>
+
+  - opro:
+      layout: even-horizontal
+      panes:
+        - CUDA_VISIBLE_DEVICES=<%= @settings["opro_gpu"] || @settings["gpu"] || "0" %> uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --population-size <%= @settings["pop"] || "5" %> --batch --batch-size <%= batch_size %> --no-mask-unselected-scores --subset all --model <%= model %> --reward-eval-model <%= reward_model %> --bandit-type opro --optimize both --max-turns 20 --push-to-db --evolution-interval 5 --strategy-cache-dir <%= cache_dir %>
+
+  - evoprompt:
+      layout: even-horizontal
+      panes:
+        - CUDA_VISIBLE_DEVICES=<%= @settings["evo_gpu"] || @settings["gpu"] || "0" %> uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --population-size <%= @settings["pop"] || "5" %> --batch --batch-size <%= batch_size %> --no-mask-unselected-scores --subset all --model <%= model %> --reward-eval-model <%= reward_model %> --bandit-type evoprompt_ga --optimize both --max-turns 20 --push-to-db --evolution-interval 5 --strategy-cache-dir <%= cache_dir %>
+
+  - neural_ucb:
+      layout: even-horizontal
+      panes:
+        - CUDA_VISIBLE_DEVICES=<%= @settings["ucb_gpu"] || @settings["gpu"] || "0" %> uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= batch_size %> --no-mask-unselected-scores --context-embedding --subset all --model <%= model %> --reward-eval-model <%= reward_model %> --bandit-type neural_ucb --optimize both --beta <%= @settings["beta"] || "0.5" %> --max-turns 20 --push-to-db --strategy-cache-dir <%= cache_dir %>

@@ -1,0 +1,25 @@
+# Neural Adversarial Bandit - Qwen 2.5-72B as Reward Model
+#
+# 使用 Qwen 2.5-72B 作为奖励模型（替代 DeepSeek V3.2）
+# 最优配置: eta=15, gamma=0.2, score-decay=0.7, epochs=100, cumulative-score-mode=nn
+#
+# Usage:
+#   tmuxinator start -p conf/main_experiments/adversarial_v3_qwen_reward.yml
+#   tmuxinator start -p conf/main_experiments/adversarial_v3_qwen_reward.yml batch=30
+
+name: main-adversarial-v3-qwen-reward-batch<%= (@settings["batch"] || "40").to_s %>
+root: .
+startup_window: qwen_reward
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/lixiang1/sotopia" %>/experiments/also
+  - source <%= @settings["project_root"] || "/lixiang1/sotopia" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+
+windows:
+  # Adversarial with Qwen reward model - optimize both
+  - qwen_reward:
+      layout: tiled
+      panes:
+        - CUDA_VISIBLE_DEVICES=0 uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores --context-embedding --subset hard --model "custom/qwen/qwen-2.5-72b-instruct@http://10.26.6.88:47845/v1" --reward-eval-model "custom/qwen/qwen-2.5-72b-instruct@http://10.26.6.88:47845/v1" --bandit-type adversarial --optimize both --eta 5 --epochs 50 --alpha 0.1 --beta 1.0 --gamma 0.2 --score-decay 0.7 --cumulative-score-mode nn --importance-weighted-reward --dynamic-eta --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/lixiang1/sotopia" %>/experiments/also/cache/strategy_embeddings_v3_slim --tag-suffix qwen_reward --dropout-rate 0.1 --mc-samples 10
+

@@ -1,0 +1,40 @@
+# Neural UCB Bandit Configuration - Strategy V3
+# Models: DeepSeek V3.2, Qwen 2.5-72B
+#
+# Usage:
+#   tmuxinator start -p conf/main_experiments/neural_ucb_v3.yml
+#   tmuxinator start -p conf/main_experiments/neural_ucb_v3.yml gpu=0 batch=40 beta=0.5
+
+name: main-neural-ucb-v3-beta-instinct<%= (@settings["beta"] || "0.5").to_s.gsub(".", "_") %>-batch<%= (@settings["batch"] || "40").to_s %>
+root: .
+startup_window: deepseek_v32
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/workspace/lixiang/sotopia" %>/experiments/also
+  - source <%= @settings["project_root"] || "/workspace/lixiang/sotopia" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+  # - export CUDA_VISIBLE_DEVICES=<%= @settings["gpu"] || "0" %>
+
+windows:
+  # DeepSeek V3.2
+  # - deepseek_v32:
+  #     layout: tiled
+  #     panes:
+  #       # Optimize: p1
+  #       - CUDA_VISIBLE_DEVICES=0 uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3  --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores  --subset all --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize p1 --beta <%= @settings["beta"] || "0.01" %> --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/workspace/lixiang/sotopia" %>/experiments/also/cache/strategy_embeddings_v3_slim
+  #       # Optimize: p2
+  #       - CUDA_VISIBLE_DEVICES=0 uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3  --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores  --subset all --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize p2 --beta <%= @settings["beta"] || "0.01" %> --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/workspace/lixiang/sotopia" %>/experiments/also/cache/strategy_embeddings_v3_slim
+  #       # Optimize: both
+  #       - CUDA_VISIBLE_DEVICES=1 uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3  --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores  --subset all --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize both --beta <%= @settings["beta"] || "0.01" %> --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/workspace/lixiang/sotopia" %>/experiments/also/cache/strategy_embeddings_v3_slim
+
+  # Qwen 2.5-72B
+  - qwen25_72b:
+      layout: tiled
+      panes:
+        # Optimize: p1
+        # - CUDA_VISIBLE_DEVICES=0 uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3  --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores  --subset all --model "custom/qwen/qwen-2.5-72b-instruct@http://10.26.6.88:47845/v1" --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize p1 --beta <%= @settings["beta"] || "0.01" %> --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/workspace/lixiang/sotopia" %>/experiments/also/cache/strategy_embeddings_v3_slim
+        # Optimize: p2
+        # - CUDA_VISIBLE_DEVICES=0 uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3  --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores  --subset all --model  "custom/qwen/qwen-2.5-72b-instruct@http://10.26.6.88:47845/v1" --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize p2 --beta <%= @settings["beta"] || "0.01" %> --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/workspace/lixiang/sotopia" %>/experiments/also/cache/strategy_embeddings_v3_slim
+        # Optimize: both
+        - CUDA_VISIBLE_DEVICES=1 uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3  --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores  --subset all --model  "custom/qwen/qwen-2.5-72b-instruct@http://10.26.6.88:47845/v1" --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type neural_ucb --optimize both --beta <%= @settings["beta"] || "0.01" %> --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/workspace/lixiang/sotopia" %>/experiments/also/cache/strategy_embeddings_v3_slim
+

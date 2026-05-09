@@ -1,0 +1,18 @@
+# Minimal reproducibility check for the ALSO paper artifact.
+#
+# Run from the repository root:
+#   tmuxinator start -p experiments/also/conf/main_experiments/smoke_test.yml project_root=$(pwd)
+
+name: also-smoke
+root: .
+startup_window: smoke
+
+pre_window:
+  - cd <%= @settings["project_root"] || "." %>/experiments/also
+  - unset ALL_PROXY all_proxy
+
+windows:
+  - smoke:
+      layout: even-horizontal
+      panes:
+        - uv run python run_bandit_simulation_context.py --batch --subset hard --max-episodes 1 --batch-size 1 --selection-mode strategy --strategy-version v3 --model <%= @settings["model"] || "openrouter/openai/gpt-4o-mini" %> --env-model <%= @settings["env_model"] || "openrouter/openai/gpt-4o-mini" %> --reward-eval-model <%= @settings["reward_eval_model"] || "openrouter/openai/gpt-4o-mini" %> --bandit-type adversarial --optimize both --max-turns 2 --tag smoke_test --output outputs/smoke_test.json

@@ -1,0 +1,39 @@
+# Adversarial Main Experiment - Qwen 2.5-72B (Custom)
+#
+# Dataset: all (full SOTOPIA)
+# Model: custom/qwen/qwen-2.5-72b-instruct
+# Reward Model: custom/qwen/qwen-2.5-72b-instruct
+# Eta: 10.0
+#
+# Usage:
+#   tmuxinator start -p conf/main_experiments/adversarial_v3_qwen_custom_all.yml
+#   tmuxinator start -p conf/main_experiments/adversarial_v3_qwen_custom_all.yml batch=30
+
+name: main-adversarial-v3-qwen-custom-all-batch<%= (@settings["batch"] || "40").to_s %>
+root: .
+startup_window: qwen_both
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/lixiang1/sotopia" %>/experiments/also
+  - source <%= @settings["project_root"] || "/lixiang1/sotopia" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+
+windows:
+  # Optimize: both (main experiment)
+  - qwen_both:
+      layout: tiled
+      panes:
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores --context-embedding --subset all --model "custom/qwen/qwen-2.5-72b-instruct@http://10.26.6.88:47845/v1" --reward-eval-model "custom/qwen/qwen-2.5-72b-instruct@http://10.26.6.88:47845/v1" --bandit-type adversarial --optimize both --eta 10.0 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/lixiang1/sotopia" %>/experiments/also/cache/strategy_embeddings_v3_slim
+
+  # Optimize: p1 only
+  - qwen_p1:
+      layout: tiled
+      panes:
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores --context-embedding --subset all --model "custom/qwen/qwen-2.5-72b-instruct@http://10.26.6.88:47845/v1" --reward-eval-model "custom/qwen/qwen-2.5-72b-instruct@http://10.26.6.88:47845/v1" --bandit-type adversarial --optimize p1 --eta 10.0 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/lixiang1/sotopia" %>/experiments/also/cache/strategy_embeddings_v3_slim
+
+  # Optimize: p2 only
+  - qwen_p2:
+      layout: tiled
+      panes:
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --embedding-model qwen/qwen3-embedding-8b --context-embedding-dim 4096 --batch --batch-size <%= @settings["batch"] || "40" %> --no-mask-unselected-scores --context-embedding --subset all --model "custom/qwen/qwen-2.5-72b-instruct@http://10.26.6.88:47845/v1" --reward-eval-model "custom/qwen/qwen-2.5-72b-instruct@http://10.26.6.88:47845/v1" --bandit-type adversarial --optimize p2 --eta 10.0 --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/lixiang1/sotopia" %>/experiments/also/cache/strategy_embeddings_v3_slim
+

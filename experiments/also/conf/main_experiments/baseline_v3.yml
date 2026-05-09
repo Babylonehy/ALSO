@@ -1,0 +1,26 @@
+# Baseline Configuration (No Optimization) - Strategy V3
+# Models: DeepSeek V3.2, Qwen 2.5-72B
+#
+# Usage:
+#   tmuxinator start -p conf/main_experiments/baseline_v3.yml
+#   tmuxinator start -p conf/main_experiments/baseline_v3.yml gpu=0 batch=40
+
+name: main-baseline-v3-batch<%= (@settings["batch"] || "40").to_s %>
+root: .
+startup_window: baseline
+
+pre_window:
+  - cd <%= @settings["project_root"] || "/workspace/lixiang/sotopia" %>/experiments/also
+  - source <%= @settings["project_root"] || "/workspace/lixiang/sotopia" %>/.venv/bin/activate
+  - unset ALL_PROXY all_proxy
+  - export CUDA_VISIBLE_DEVICES=<%= @settings["gpu"] || "0" %>
+
+windows:
+  - baseline:
+      layout: tiled
+      panes:
+        # DeepSeek V3.2 - Baseline
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --batch --batch-size <%= @settings["batch"] || "40" %> --subset hard --model openrouter/deepseek/deepseek-v3.2 --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize none --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/workspace/lixiang/sotopia" %>/experiments/also/cache/strategy_embeddings_v3_slim
+        # Qwen 2.5-72B - Baseline
+        - uv run python run_bandit_simulation_context.py --selection-mode strategy --strategy-version v3 --batch --batch-size <%= @settings["batch"] || "40" %> --subset hard --model openrouter/qwen/qwen-2.5-72b-instruct --reward-eval-model openrouter/deepseek/deepseek-v3.2 --bandit-type adversarial --optimize none --max-turns 20 --push-to-db --strategy-cache-dir <%= @settings["project_root"] || "/workspace/lixiang/sotopia" %>/experiments/also/cache/strategy_embeddings_v3_slim
+
