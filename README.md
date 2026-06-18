@@ -47,8 +47,6 @@ The project page reports that ALSO is best or near-best across Sotopia-All and S
 | --- | --- | ---: | ---: | ---: | ---: | ---: |
 | DeepSeek-V3.2 | Sotopia-All | 3.619 | 3.851 | 3.787 | 3.737 | **3.889** |
 | DeepSeek-V3.2 | Sotopia-Hard | 3.025 | 3.427 | 3.344 | 3.292 | **3.527** |
-| Qwen2.5-72B | Sotopia-All | 3.676 | 3.848 | 3.689 | 3.825 | **3.882** |
-| Qwen2.5-72B | Sotopia-Hard | 3.347 | **3.666** | 3.242 | 3.491 | 3.648 |
 
 See the [project page](https://babylonehy.github.io/ALSO/) for additional ablations, strategy drift analysis, heterogeneous model pairing, and case studies.
 
